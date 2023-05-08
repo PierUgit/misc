@@ -71,6 +71,8 @@ a higher complexity. And in practice it is even better:
 * If one allows some limited allocation, at some point there is only N/10 elements to count,
   further maybe only N/100, etc... The worst case scenario is still O(N*log(M)), 
   but the best case is rather be O(N)
+  
+See the [whole code](../src/sortselect.f90), and the [benchmark code](../src/sortselect_test.f90)
 
 Bisection Select benchmark for "small" values of N
 --------------------------------------------------
