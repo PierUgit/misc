@@ -204,6 +204,11 @@ QuickSort comes with 3 flavors for the selection of the pivot:
 * (M) approximate median (median of medians algorithm)
 * (T) approximate median + partial sorting (the partial sorting is a by-product of the
   median of medians algorithm, but it requires a in-place transposition)
+  
+The pivot selection based on the "median of medians" aims at ensuring a `O(N*log(N))`
+complexity even in the worst case scenario, which is otherwise `O(N^2)`, `O(N*log(N))`
+being only the average complexity. But the cost of the "median of medians"
+make it almost useless in practice, as seen below.
 
 All algorithms are "pure" ones, without falling back to
 more efficient ones for small values of N.
