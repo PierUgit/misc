@@ -5,17 +5,21 @@ Program sortselect_test
     implicit none
 
 	integer, parameter :: dp = kind(1d0)
-	integer, parameter :: METATEST = 1
     logical, parameter :: FILOUT = .true.
     integer, parameter :: P2INC = 16
     
     real, allocatable :: a(:), b(:)
     double precision :: x
-    integer :: p2min, p2max, prand, n, nth, ntest, n_old
+    integer :: p2min, p2max, prand, n, nth, ntest, n_old, metatest
     integer :: i, j, k, kref, idist, lu
 	character(len=20), allocatable :: testlist(:)
 	character(len=128) :: filename
 	real, allocatable :: v(:), time(:)
+	
+	
+	
+	do metatest = 4, 4
+	
 	
 	
 	write(*,*) "========================================================================="
@@ -63,7 +67,7 @@ Program sortselect_test
 	                            	 "quicksortM",  &
 	                            	 "quicksortT"   ]
 	    p2min = 1
-	    p2max = 27
+	    p2max = 26
 	end if 
 	
 	ntest = size(testlist)
@@ -88,7 +92,7 @@ Program sortselect_test
 			n = 2**i * 2**(real(j)/P2INC)
 			if (n == n_old) cycle
 			n_old = n
-		
+					
 			call random_number(x)
 			nth = floor(x*n) + 1
    	  		
@@ -120,8 +124,13 @@ Program sortselect_test
     	deallocate(b)
 	end do
 	
+	deallocate(v, time)
 	if (FILOUT) close(lu)
-	deallocate( v, time )
+
+	end do
+	
+	
+	
 	
 
 contains

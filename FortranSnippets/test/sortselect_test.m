@@ -22,8 +22,9 @@ loglog  (nbel,insertselect(:,1),'k', ...
          nbel,bisection10(:,1), 'c')
 axis([1 1e6 2e-9 2e-7]);
 xlabel('N'); ylabel("time/N"); title("Uniform distribution");
-legend('InsertionsSelect','HeapSelect','QuickSelect','BisectionSelect','BisectionSelect non-strict') 
-saveas(h,'sortselect_test_files/fig11.png','png')
+legend('InsertionsSelect','HeapSelect','QuickSelect','BisectionSelect','BisectionSelect non-strict', ...
+       'location','northeastoutside') 
+print('sortselect_test_files/fig11.png','-dpng','-S700,400');
 
 h = figure(12)
 loglog  (nbel,heapselect(:,1),  'g', ...
@@ -34,8 +35,9 @@ loglog  (nbel,heapselect(:,1),  'g', ...
          nbel,bisection00(:,5), 'm--')
 axis([1 1e6 2e-9 2e-7]);
 xlabel('N'); ylabel("time/N"); title("BisectionSelect strict vs distribution");
-legend('(HeapSelect)','... Uniform','... Uniform**3','... Uniform**9','... Gaussian','... Uniform**9 bis') 
-saveas(h,'sortselect_test_files/fig12.png','png')
+legend('(HeapSelect)','... Uniform','... Uniform**3','... Uniform**9','... Gaussian','... Uniform**9 bis', ...
+       'location','northeastoutside') 
+print('sortselect_test_files/fig12.png','-dpng','-S700,400');
 
 h = figure(13)
 loglog  (nbel,heapselect(:,1),  'g', ...
@@ -46,8 +48,9 @@ loglog  (nbel,heapselect(:,1),  'g', ...
          nbel,bisection10(:,5), 'm--')
 axis([1 1e6 2e-9 2e-7]);
 xlabel('N'); ylabel("time/N"); title("BisectionSelect non-strict vs distribution");
-legend('(HeapSelect)','... Uniform','... Uniform**3','... Uniform**9','... Gaussian','... Uniform**9 bis') 
-saveas(h,'sortselect_test_files/fig13.png','png')
+legend('(HeapSelect)','... Uniform','... Uniform**3','... Uniform**9','... Gaussian','... Uniform**9 bis', ...
+       'location','northeastoutside') 
+print('sortselect_test_files/fig11.png','-dpng','-S700,400');
 
 
 
@@ -77,7 +80,7 @@ loglog  (nbel,bisection00(:,1),'b', ...
 axis([1e3 1e9 2e-9 2e-8]);
 xlabel('N'); ylabel("time/N"); title("Uniform distribution - Bisection Select");
 legend('strict','non strict','strict + allow allocation','non strict + allow allocation') 
-saveas(h,'sortselect_test_files/fig21.png','png')
+print('sortselect_test_files/fig11.png','-dpng','-S500,400');
 
 h = figure(22)
 loglog  (nbel,quickselect(:,1),'r', ...
@@ -85,7 +88,7 @@ loglog  (nbel,quickselect(:,1),'r', ...
 axis([1e3 1e9 2e-9 2e-8]);
 xlabel('N'); ylabel("time/N"); title("Uniform distribution");
 legend('Quickselect','Bisection Select strict') 
-saveas(h,'sortselect_test_files/fig22.png','png')
+print('sortselect_test_files/fig11.png','-dpng','-S500,400');
 
 h = figure(23)
 loglog  (nbel,bisection00(:,1),'b', ...
@@ -95,8 +98,9 @@ loglog  (nbel,bisection00(:,1),'b', ...
          nbel,bisection00(:,5),'m--')
 axis([1e3 1e9 2e-9 2e-8]);
 xlabel('N'); ylabel("time/N"); title("Bisection Select strict versus distribution");
-legend('Uniform','Uniform**3','Uniform**9','Gaussian','uniform**9 bis') 
-saveas(h,'sortselect_test_files/fig23.png','png')
+legend('Uniform','Uniform**3','Uniform**9','Gaussian','uniform**9 bis', ...
+       "location",'northeastoutside') 
+print('sortselect_test_files/fig11.png','-dpng','-S700,400');
 
 h = figure(24)
 loglog  (nbel,quickselect(:,4),'r', ...
@@ -104,7 +108,7 @@ loglog  (nbel,quickselect(:,4),'r', ...
 axis([1e3 1e9 2e-9 2e-8]);
 xlabel('N'); ylabel("time/N"); title("Gaussian distribution");
 legend('Quickselect','Bisection Select strict + allow allocation)') 
-saveas(h,'sortselect_test_files/fig24.png','png')
+print('sortselect_test_files/fig11.png','-dpng','-S500,400');
 
 
 
@@ -136,8 +140,8 @@ loglog  (nbel,insertsort(:,1),'k', ...
          nbel,quicksortT(:,1),'c')
 axis([1 1e6 1e-8 1e-6]);
 xlabel('N'); ylabel("time/N"); title("Uniform distribution");
-legend('InsertionsSort','HeapSort','QuickSort-R','QuickSort-M','QuickSort-T') 
-saveas(h,'sortselect_test_files/fig31.png','png')
+legend('InsertionsSort','HeapSort','QuickSort-R','QuickSort-M','QuickSort-T',"location",'southeast') 
+print('sortselect_test_files/fig11.png','-dpng','-S500,400');
 
 
 
@@ -167,5 +171,5 @@ loglog  (nbel,insertsort(:,1),'k', ...
          nbel,quicksortT(:,1),'c')
 axis([1e2 1e8 1e-8 1e-6]);
 xlabel('N'); ylabel("time/N"); title("Uniform distribution");
-legend('InsertionsSort','HeapSort','QuickSort-R','QuickSort-M','QuickSort-T',"location",'northwest') 
-saveas(h,'sortselect_test_files/fig41.png','png')
+legend('InsertionsSort','HeapSort','QuickSort-R','QuickSort-M','QuickSort-T',"location",'southeast') 
+print('sortselect_test_files/fig11.png','-dpng','-S500,400');

@@ -91,8 +91,7 @@ representation:
 * O(N*log(N)) algorithms appear like (y = cst + log(cst + x))
 * O(N^2) algorithms appear like (y = cst + x)
 
-![figure 1.1](sortselect_test_files/fig11.png "")
-Figure1.1
+![figure 1.1](sortselect_test_files/fig11.png "figure 1.1")
 
 **Observations**
 * The non-strict Bisection Select is much more efficient than all other ones. It tends however
@@ -119,8 +118,7 @@ test here different distributions:
   
 We test the strict version first:
   
-![figure 1.2](sortselect_test_files/fig12.png "")
-Figure1.2
+![figure 1.2](sortselect_test_files/fig12.png "figure 1.2")
 
 **Observations**
 * The performances on all the distributions are very close to each other, except for the 
@@ -132,8 +130,7 @@ Figure1.2
     
 Now we test the non strict version:
 
-![figure 1.3](sortselect_test_files/fig13.png "")
-Figure1.3
+![figure 1.3](sortselect_test_files/fig13.png "figure 1.3")
 
 **Observations**
 * The performances on all the distributions are very close to each other, except for the 
@@ -155,9 +152,7 @@ narrowed the search to a "small" enough number of elements.
 First we look at the different flavors of Bisection Select, for the uniform distribution.
 Because of the very strong dispersion of the runtimes, the curves are smoothed (median filter).
 
-![figure 2.1](sortselect_test_files/fig21.png "")
-
-*Figure2.1*
+![figure 2.1](sortselect_test_files/fig21.png "figure 2.1")
 
 Observations:
 * The non-strict version is much faster than the strict version for N < 10^6. Above that it
@@ -170,9 +165,7 @@ Observations:
   
 Now let's compare the strict version to QuickSelect:
 
-![figure 2.2](sortselect_test_files/fig22.png "")
-
-*Figure2.2*
+![figure 2.2](sortselect_test_files/fig22.png "figure 2.2")
 
 Observations:
 * Bisection Select is about 30% faster for N < 10^6. The non-strict version would be even faster.
@@ -180,9 +173,7 @@ Observations:
 
 Now looking at the strict version for different distributions:
 
-![figure 2.3](sortselect_test_files/fig23.png "")
-
-*Figure2.3*
+![figure 2.3](sortselect_test_files/fig23.png "figure 2.3")
 
 Observations:
 * Same observations as for smaller N value:
@@ -194,9 +185,7 @@ Observations:
 And finally, let's compare the strict version with allocation allowed to QuickSelect, 
 on a gaussian distribution:
 
-![figure 2.4](sortselect_test_files/fig24.png "")
-
-*Figure2.4*
+![figure 2.4](sortselect_test_files/fig24.png "figure 2.4")
 
 Observations:
 * The Bisection Select with allocation is constantly faster than QuickSelect
@@ -217,9 +206,7 @@ QuickSort comes with 3 flavors for the selection of the pivot:
 All algorithms are "pure" ones, without falling back to
 more efficient ones for small values of N.
 
-![figure 3.1](sortselect_test_files/fig31.png "")
-
-*Figure3.1*
+![figure 3.1](sortselect_test_files/fig31.png "figure 3.1")
 
 Observations:
 * All QuickSort flavors show a clear O(N*log(N)) behavior, with limited overheads for
@@ -239,9 +226,7 @@ Now we benchmark up to N=2^26 (I had trouble going beyond that on my old compute
 QuickSort can fall back to HeapSort for small values of N, and HeapSort can fall back to
 InsertionSort for even smaller values.
 
-![figure 4.1](sortselect_test_files/fig41.png "")
-
-*Figure4.1*
+![figure 4.1](sortselect_test_files/fig41.png "figure 4.1")
 
 Observations:
 * While QuickSortR nicely follows the O(N*log(N)) behavior even for very large N,  
