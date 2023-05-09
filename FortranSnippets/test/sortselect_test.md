@@ -1,6 +1,16 @@
 Bisection select... and other sorting/selection methods
 =======================================================
 
+Takeaway
+--------
+
+Bisection Select is an efficient algorihtm to find the k smallest values in an unsorted array.
+
+The input array is left unmodified, and no additional storage is required.
+
+Except in extreme cases the algorithm is in practice always as fast as the QuickSelect algorithm
+(which moreover modifies the input array), and is often faster. 
+
 Preamble
 --------
 
