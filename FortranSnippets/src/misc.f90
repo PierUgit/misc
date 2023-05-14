@@ -26,7 +26,7 @@ use bitfield
 integer, intent(in) :: n, m
 real, intent(inout), target :: a(n*m)
 
-integer :: k, i1, j1, k1, i2, j2, k2
+integer :: cycle_start, cycle_to, cycle_from, i, j
 real :: t
 type(bitfield_t) :: b
 real, pointer :: a1(:,:), a2(:,:)
@@ -36,11 +36,11 @@ real, pointer :: a1(:,:), a2(:,:)
 if (n == m) then
    a1(1:n,1:m) => a
    a2(1:m,1:n) => a
-   do j2 = 1, n
-      do i2 = 1, j2-1
-         t = a2(i2,j2)
-         a2(i2,j2) = a1(j2,i2)
-         a1(j2,i2) = t
+   do j = 1, n
+      do i = 1, j-1
+         t = a2(i,j)
+         a2(i,j) = a1(j,i)
+         a1(j,i) = t
       end do
    end do
    return
@@ -49,30 +49,33 @@ end if
 call b%allocate(n*m)
 call b%setall(.false.)
 
-do k = 1, n*m
-   if (b%get(k)) cycle   ! element already updated
-   ! start of a new cycle at element k
-   t = a(k)              ! keep for later
-   call b%set(k,.true.)  ! mark as "being updated"
-   k2 = k
+do cycle_start = 1, n*m
+   if (b%get(cycle_start)) cycle
+   t = a(cycle_start)              ! keep for the end of the cycle
+   cycle_to = cycle_start
    do
-      j2 = (k2-1)/m + 1    ! indexes in the destination matrix
-      i2 = k2 - (j2-1)*m   !
-      i1 = j2              ! indexes in the source matrix
-      j1 = i2              !
-      k1 = (j1-1)*n + i1   ! position of the source element in the 1D array
-      if (b%get(k1)) then  
-         ! if the source element is marked, then it was the first one of the cycle
-         a(k2) = t   ! upadte the destination with the value that had been stored 
+      call b%set(cycle_to,.true.)
+      cycle_from = transpose_1dindex(cycle_to,m,n)
+      if (cycle_from == cycle_start) then
+         a(cycle_to) = t
          exit   ! end of the cycle
       end if
-      a(k2) = a(k1)           ! update destination 
-      call b%set(k1,.true.)   ! mark source as used
-      k2 = k1
+      a(cycle_to) = a(cycle_from)
+      cycle_to = cycle_from
    end do
 end do
 
 call b%deallocate()
+
+CONTAINS
+
+   pure integer function transpose_1dindex(knm,n,m) result(kmn)
+   integer, intent(in) :: knm, n, m
+   integer :: i, j
+   j = (knm-1)/n + 1
+   i = knm - (j-1)*n
+   kmn = (i-1)*m + j
+   end function transpose_1dindex
 
 end subroutine
 
