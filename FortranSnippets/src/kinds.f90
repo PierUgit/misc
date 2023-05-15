@@ -61,7 +61,7 @@ integer, parameter :: rk_sp = merge(rk_single,rk_double,is_single_least_sp)
 ! determining rk_dpw
 logical, parameter :: &
    is_single_least_dpw = precision(0.0) >= dpw_pmin .and. range(0.0) >= dpw_rmin
-integer, parameter ::                                        &
+integer, parameter ::                                       &
    rk_dpw = merge(rk_single,rk_double,is_single_least_dpw), &
    rk_dpw_prec = precision(0.0_rk_dpw),                     &
    rk_dpw_range = range(0.0_rk_dpw)
@@ -69,31 +69,31 @@ integer, parameter ::                                        &
 ! determining rk_dp
 logical, parameter :: &
    is_dpw_least_dp = rk_dpw_prec >= dp_pmin .and. rk_dpw_range >= dp_rmin
-integer, parameter ::                                         &
+integer, parameter ::                                        &
    dp___ = selected_real_kind(p=dp_pmin,r=dp_rmin),          &
    rk_dp = merge(rk_dpw,dp___,is_dpw_least_dp .or. dp___<0), &
-   rk_dp_prec  = precision(0.0_rk_dp),                      &
+   rk_dp_prec  = precision(0.0_rk_dp),                       &
    rk_dp_range = range(0.0_rk_dp)
 
 ! determining rk_ep
 logical, parameter :: &
    is_dp_least_ep = rk_dp_prec >= ep_pmin .and. rk_dp_range >= ep_rmin
-integer, parameter ::                                       &
+integer, parameter ::                                      &
    ep___ = selected_real_kind(p=18,r=100),                 &
    rk_ep = merge(rk_dp,ep___,is_dp_least_ep .or. ep___<0), &
-   rk_ep_prec  = precision(0.0_rk_ep),                 &
+   rk_ep_prec  = precision(0.0_rk_ep),                     &
    rk_ep_range = range(0.0_rk_ep)
 
-integer, parameter ::                                   &
+integer, parameter ::                                  &
    ddp___ = selected_real_kind(p=ddp_pmin,r=ddp_rmin), &
    rk_ddp = merge(ddp___,rk_ep,ddp___>0),              &
-   rk_ddp_prec  = precision(0.0_rk_ddp),           &
+   rk_ddp_prec  = precision(0.0_rk_ddp),               &
    rk_ddp_range = range(0.0_rk_ddp)
 
-integer, parameter ::                                 &
+integer, parameter ::                                &
    qp___  = selected_real_kind(p=qp_pmin,r=qp_rmin), &
    rk_qp  = merge(qp___,rk_ddp,qp___>0),             &
-   rk_qp_prec  = precision(0.0_rk_qp),           &
+   rk_qp_prec  = precision(0.0_rk_qp),               &
    rk_qp_range = range(0.0_rk_qp)
 
 public :: rk_sp, rk_dp, rk_ep, rk_ddp, rk_qp
