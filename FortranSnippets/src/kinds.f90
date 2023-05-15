@@ -27,15 +27,14 @@
 !     
 ! Note that Fortran standard only *recommends* precision(0.0) >= 6,  range(0.0) >= 37
 !                             but *requires*   precision(0d0) >= 10, range(0d0) >= 37
-! Consequentely, rk_sp and rk_dpw always meet the requirements and are always 
-! either rk_single or rk_double
+! Consequentely, rk_sp and rk_dpw always meet the requirements 
+! and are *always* either rk_single or rk_double
 !
 ! For the integer type the module provides the kind ik_long, which is 
-! - either the default kind if it has a range >= 15 *or* if no other kind have a range >= 15
-! - selected_int_kind(r=15) otherwise
+! - either the default kind if it has a range >= 18
+! - selected_int_kind(r=18) otherwise
 !
-! Again, ik_long is not garanteed to have a range >= 15, it has to be tested using the
-! constant ik_long_range
+! Note that the standard requires the compilers to provide an integer with a range >= 18
 !***********************************************************************************************
 module mykinds
 use iso_fortran_env, only : int64
@@ -84,12 +83,14 @@ integer, parameter ::                                      &
    rk_ep_prec  = precision(0.0_rk_ep),                     &
    rk_ep_range = range(0.0_rk_ep)
 
+! determining rk_ddp
 integer, parameter ::                                  &
    ddp___ = selected_real_kind(p=ddp_pmin,r=ddp_rmin), &
    rk_ddp = merge(ddp___,rk_ep,ddp___>0),              &
    rk_ddp_prec  = precision(0.0_rk_ddp),               &
    rk_ddp_range = range(0.0_rk_ddp)
 
+! determining rk_qp
 integer, parameter ::                                &
    qp___  = selected_real_kind(p=qp_pmin,r=qp_rmin), &
    rk_qp  = merge(qp___,rk_ddp,qp___>0),             &
@@ -102,9 +103,11 @@ public :: rk_dp_prec, rk_dp_range,   &
           rk_ddp_prec, rk_ddp_range, &
           rk_qp_prec, rk_qp_range
 
-logical, parameter :: is_int_least15 = range(0) >= 15
-integer, parameter :: ik_long___ = selected_int_kind(r=15)
-integer, parameter :: ik_long = merge(kind(0),ik_long___,is_int_least15 .or. ik_long___ < 0)
+
+! determining ik_long
+logical, parameter :: is_int_least18 = range(0) >= 18
+integer, parameter :: ik_long___ = selected_int_kind(r=18)
+integer, parameter :: ik_long = merge(kind(0),ik_long___,is_int_least18)
 integer, parameter :: ik_long_range = range(0_ik_long)
 
 public :: ik_long, ik_long_range
