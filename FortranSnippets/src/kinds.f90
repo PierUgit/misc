@@ -1,12 +1,41 @@
-
-
+!***********************************************************************************************
+! Author: Pierre Hugonnet
+! https://github.com/PierUgit
+! License: GPL v3 
+!***********************************************************************************************
+! (hopefully) useful real and integer kind values
+!
+! For the real type the module defines the following kinds:
+! - rk_single and rk_double for the default real and "double precision"
+! - rk_sp  (single precision):        precision >= 6,  range >= 37
+! - rk_dpw (weak double precision):   precision >= 10, range >= 37
+! - rk_dp  (double precision):        precision >= 12, range >= 307  (*)
+! - rk_ep  (extened precision):       precision >= 18, range >= 100  (*)
+! - rk_ddp (double double precision): precision >= 24, range >= 100  (*)
+! - rk_qp  (quadruple precision):     precision >= 24, range >= 1000 (*)
+! 
+! (*) note that these kinds are always defined, even if the requirements are not met.
+!     rk_dp falls back to rk_dpw if no kind meets the requirements
+!     rk_ep falls back to rk_dp if no kind meets the requirements
+!     rk_ddp falls back to rk_ep if no kind meets the requirements
+!     rk_qp falls back to rk_ddp if no kind meets the requirements
+!     This approach has the advantage that codes that use these kind constants will always 
+!     compile. The downside is that one has to test their actual precision/range and 
+!     take a decision at the execution (algorithm selection or abort)
+!
+! Note that Fortran standard *recommends* precision(0.0) >= 6,  range(0.0) >= 37
+!                        and *requires*   precision(0d0) >= 10, range(0d0) >= 37
+! Consequentely, rk_sp and rk_dpw are always either rk_single or rk_double
+!***********************************************************************************************
 module mykinds
 use iso_fortran_env, only : int64
 implicit none
 
 private
 
-integer, parameter ::  dp_pmin = 12,  dp_rmin = 100,  &
+integer, parameter ::  sp_pmin = 6,   sp_rmin = 37,   &
+                      dpw_pmin = 10, dpw_rmin = 37,  &
+                       dp_pmin = 12,  dp_rmin = 100,  &
                        ep_pmin = 18,  ep_rmin = 100,  &
                       ddp_pmin = 24, ddp_rmin = 100,  &
                        qp_pmin = 24,  qp_rmin = 1000
@@ -14,36 +43,50 @@ integer, parameter ::  dp_pmin = 12,  dp_rmin = 100,  &
 integer, parameter :: rk_single = kind(0.0), &
                       rk_double = kind(0d0)
 
-integer, parameter :: rk_sp = rk_single
-
+! determining rk_sp
 logical, parameter :: &
-    is_single_least_dp = precision(0.0) >= dp_pmin .and. range(0.0) >= dp_rmin
-integer, parameter ::                                      &
-    rk_dp = merge(rk_single,rk_double,is_single_least_dp), &
-    rk_dp_precision = precision(0.0_rk_dp),                &
-    rk_dp_range     = range(0.0_rk_dp)
+    is_single_least_sp = precision(0.0) >= sp_pmin .and. range(0.0) >= sp_rmin
+integer, parameter :: rk_sp = merge(rk_single,rk_double,is_single_least_sp)
+
+! determining rk_dpw
+logical, parameter :: &
+    is_single_least_dpw = precision(0.0) >= dpw_pmin .and. range(0.0) >= dpw_rmin
+integer, parameter ::                                        &
+    rk_dpw = merge(rk_single,rk_double,is_single_least_dpw), &
+    rk_dpw_prec = precision(0.0_rk_dpw),                     &
+    rk_dpw_range = range(0.0_rk_dpw)
     
+! determining rk_dp
+logical, parameter :: &
+    is_dpw_least_dp = rk_dpw_prec >= dp_pmin .and. rk_dpw_range >= dp_rmin
+integer, parameter ::                                         &
+    dp___ = selected_real_kind(p=dp_pmin,r=dp_rmin),          &
+    rk_dp = merge(rk_dpw,dp___,is_dpw_least_dp .or. dp___<0), &
+    rk_dp_prec  = precision(0.0_rk_dp),                      &
+    rk_dp_range = range(0.0_rk_dp)
+
 logical, parameter :: &
     is_dp_least_ep = rk_dp_precision >= ep_pmin .and. rk_dp_range >= ep_rmin
 integer, parameter ::                                       &
     ep___ = selected_real_kind(p=18,r=100),                 &
     rk_ep = merge(rk_dp,ep___,is_dp_least_ep .or. ep___<0), &
-    rk_ep_precision = precision(0.0_rk_ep),                 &
-    rk_ep_range     = range(0.0_rk_ep)
+    rk_ep_prec  = precision(0.0_rk_ep),                 &
+    rk_ep_range = range(0.0_rk_ep)
 
 integer, parameter ::                                   &
     ddp___ = selected_real_kind(p=ddp_pmin,r=ddp_rmin), &
     rk_ddp = merge(ddp___,rk_ep,ddp___>0),              &
-    rk_ddp_precision = precision(0.0_rk_ddp),           &
-    rk_ddp_range     = range(0.0_rk_ddp)
+    rk_ddp_prec  = precision(0.0_rk_ddp),           &
+    rk_ddp_range = range(0.0_rk_ddp)
 
 integer, parameter ::                                 &
     qp___  = selected_real_kind(p=qp_pmin,r=qp_rmin), &
     rk_qp  = merge(qp___,rk_ddp,qp___>0),             &
-    rk_qp_precision = precision(0.0_rk_qp),           &
-    rk_qp_range     = range(0.0_rk_qp)
+    rk_qp_prec  = precision(0.0_rk_qp),           &
+    rk_qp_range = range(0.0_rk_qp)
 
 public :: rk_sp, rk_dp, rk_ep, rk_ddp, rk_qp
+public :: rk_ep_prec, rk_ep_range, rk_ddp_prec, rk_ddp_range, rk_qp_prec, rk_qp_range
 
 logical, parameter :: is_int_least15 = range(0) >= 15
 integer, parameter :: ik_long = merge(kind(0),selected_int_kind(r=15),is_int_least15)
