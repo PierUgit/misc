@@ -104,13 +104,15 @@ public :: rk_dp_prec, rk_dp_range,   &
           rk_qp_prec, rk_qp_range
 
 
+integer, parameter :: ik_default = kind(0)
+
 ! determining ik_long
 logical, parameter :: is_int_least18 = range(0) >= 18
 integer, parameter :: ik_long___ = selected_int_kind(r=18)
 integer, parameter :: ik_long = merge(kind(0),ik_long___,is_int_least18)
 integer, parameter :: ik_long_range = range(0_ik_long)
 
-public :: ik_long, ik_long_range
+public :: ik_default, ik_long, ik_long_range
 
 end module
 
