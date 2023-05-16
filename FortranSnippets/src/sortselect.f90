@@ -468,44 +468,53 @@ CONTAINS
    real,    value      :: v1, v2
    integer, value      :: k1, k2
 
-   integer :: n, k0, i, j
+   integer :: n, k0, i, j, iter
    real :: v0, c
    real, allocatable :: b(:)
    !*************************************************************************************
    n = size(a)
    
-   if ((strict .and. n <= BISECSELECT_STRICT_REVERT2HEAP) .or.          &
-      (.not.strict .and. n <= BISECSELECT_NONSTRICT_REVERT2HEAP)) then
-      b = a
-      val = insertionselect(b,k)
-      return
-   end if
-   
-   ! Reduce the [v1,v2] interval by bisection
-   v0 = safe_mean(v1,v2)
-   if (v0 == v2 .or. v0 == v1) then 
-      ! no real value exists between v1 and v2, end of the bisection
-      val = v2
-   else
-      k0 = count(a <= v0)
-      if (.not.strict .and. k0 == k) then
-         ! v0 is not necessarily a value present in a(:)
-         val = v0
-      else
-         if (k0 >= k) then
-            v2 = v0; k2 = k0
+   iter = 0
+   do
+      iter = iter + 1
+      if ((    strict .and. k2-k1 <= BISECSELECT_STRICT_REVERT2HEAP)   .or.     &
+         (.not.strict .and. k2-k1 <= BISECSELECT_NONSTRICT_REVERT2HEAP)    ) then
+         if (iter == 1)  then 
+            b = a
          else
-            v1 = v0; k1 = k0
-         end if
-         if (alloc .and. n >= BISECSELECT_ALLOC_THRESHOLD .and. k2-k1 <= n/10) then
             call extract(a,v1,v2,b,k2-k1)
-            val = bisection___(b,k-k1,strict,alloc,v1,v2,0,k2-k1)
+         end if
+         val = heapselect(b,k)
+         exit
+      end if
+      if (iter > 1 .and. alloc .and. n >= BISECSELECT_ALLOC_THRESHOLD .and. k2-k1 <= n/10) then
+         call extract(a,v1,v2,b,k2-k1)
+         val = bisection___(b,k-k1,strict,alloc,v1,v2,0,k2-k1)
+         exit
+      end if
+   
+      ! Reduce the [v1,v2] interval by bisection
+      v0 = safe_mean(v1,v2)
+      if (v0 == v2 .or. v0 == v1) then 
+         ! no real value exists between v1 and v2, end of the bisection
+         val = v2
+         exit
+      else
+         k0 = count(a <= v0)
+         if (.not.strict .and. k0 == k) then
+            ! v0 is not necessarily a value present in a(:)
+            val = v0
+            exit
          else
-            val = bisection___(a,k,strict,alloc,v1,v2,k1,k2)
+            if (k0 >= k) then
+               v2 = v0; k2 = k0
+            else
+               v1 = v0; k1 = k0
+            end if
          end if
       end if
-   end if
-    
+   end do      
+
    end function bisection___
           
    
