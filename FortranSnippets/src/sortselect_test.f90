@@ -73,7 +73,7 @@ Program sortselect_test
    ntest = size(testlist)
    allocate( v(ntest), time(ntest), source=0.0 )
    write(filename,"(I1)") METATEST
-   filename = "sortselect_test_files/test"//filename(1:1)//".txt"
+   filename = "../test/sortselect_test_files/test"//filename(1:1)//".txt"
    if (FILOUT) open(newunit=lu,file=filename)
    
    do idist = 1, 5
