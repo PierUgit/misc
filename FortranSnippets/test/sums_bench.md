@@ -1,6 +1,18 @@
 Bisection select... and other sorting/selection methods
 =======================================================
 
+The maximum absolute error of the sum of N elements is bounded by $Err(n)=\frac{\epsilon f(n)}{1-\epsilon f(n)}\sum_i{|x_i|}$, where $\epsilon$ is the machine precision (about ~$10^{-7}$ for IEEE754 single precision), and $f(n)$ a function that depends on the summation method:
+|                  | $f(n)$            | 
+|------------------|-------------------|
+| straight         | $n$               |
+| pairwise         | $\log_2{n}$       |
+| compensated      | $1$               |
+
+The first thing to note is the denominator that can lead to catastrophic errors when $\epsilon f(n)$ is no longer negligible wrt $1$ (say above $0.1$). In single precision it means as soon as $n$ is larger than $10^6$, and in double precision larger than $10^14$. 
+(*) (E)HPA = (Emulated) Higher Precision Accumulator
+
+Where $\epsilon$ is the machine precision of the base type, $\epsilon'$ the machine precision for the accumulator type, and $c$ the [condition number of the summation](https://en.wikipedia.org/wiki/Pairwise_summation#Accuracy) (which is independent from the method).
+
 Takeaway
 --------
 
