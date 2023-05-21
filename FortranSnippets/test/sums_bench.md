@@ -1,16 +1,35 @@
 Benchmark of 1D floating point summation methods
 ================================================
 
-The maximum absolute error of the sum of N elements, $S(n)=\sum_i{x_i}$ is bounded by $Err0_max(n)=\frac{\epsilon f(n)}{1-\epsilon f(n)}\sum_i{|x_i|}$, where $\epsilon$ is the machine precision (about ~$10^{-7}$ for IEEE754 single precision), and $f(n)$ a function that depends on the summation method:
-|                  | $f(n)$            | 
-|------------------|-------------------|
-| straight         | $n$               |
-| pairwise         | $\log_2{n}$       |
-| compensated      | $1$               |
+Preamble
+--------
+
+We benchmark the runtimes and accuracies of several methods of the summation of N single precision floating point values $S(n)=\sum_{i=1..N}{x_i}$:
+- **sumi**: intrinsic Fortran `sum()` function (using the gfortran compiler)
+- **sum_**: straight summation: simple do loop with an accumulator. The accumulator can be:
+  - **sum_sp**: single precision accumulator
+  - **sum_dp**: double precision accumulator
+  - **sum_qp**: quadruple precision accumulator
+- **psum**: [pairwise summation](https://en.wikipedia.org/wiki/Pairwise_summation). 
+  - **psum_k**: variation where the intrinsic sum is used once $k$ elements or less are left in the recursion ($k=2$ for the default pairwise summation)
+- **ksum**: [Kahan summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm). 
+  - **ksum_k**: variation where the different steps of the summation are performed on chunks of $k$ elements, with the $k$ results classicaly summed at the end.
+
+The tests are performed on a x86 machine (an old Core i5 2500K from 2011), with the gfortran 12 compiler. All floating point types are IEEE-754. The single and double are native, and the quadruple is software emulated.  
+
+Accuracy analysis
+-----------------
+
+The maximum absolute error of the sum of N elements, $S(n)=\sum_i{x_i}$ is bounded by $Err0_max(n)=\frac{\epsilon f(n)}{1-\epsilon f(n)}\sum_i{|x_i|}$, where $\epsilon$ is the machine precision (about ~$10^{-7}$ for IEEE-754 single precision), and $f(n)$ a function that depends on the summation method:
+|                  | $f(n)$            | Notes |
+|------------------|-------------------|-------|
+| straight         | $n$               | $\epsilon$ is the one of the accumulator! |
+| pairwise         | $\log_2{n}$       |       |
+| Kahan            | $1$               |       |
 
 Note the denominator that can lead to catastrophic errors when $\epsilon f(n)$ is no longer negligible wrt $1$ (say above $0.1$). In single precision it means as soon as $n$ is larger than $10^6$, and in double precision larger than $10^{14}$. The classical example is the straight summation of $x_i=1.0$ in single precision: the actual sum is equal to N for $N<=2^{24}=16777216$ (24 being the number of bits in the mantissa of a IEEE754 single precision floating point), and to 16777216 whatever $N>2^{24}$, since $2^{24}+1.0=2^{24}$.
 
-In the rest of the document let's assume that we are in case where the denominator can be neglected: $Err0_max(n)=1-\epsilon f(n)<<1$
+**In the rest of the document we assume that we are in the case where the denominator can be neglected**: $Err0_max(n)=1-\epsilon f(n)<<1$
 
 The maximum absolute error is then $Err0_max(n)=\epsilon f(n) \sum_i{|x_i|}$. This worst case happens when all the rounding errors have the same sign. In practice they behave as a random walk, with signs that can be either positive or negative. The error has then a normal distribution, and we can take the standard deviation as the average error:
 
@@ -22,16 +41,28 @@ $Err1(n)=\frac{Err0(n)}{S(n)}=\epsilon \sqrt{f(n)/3} . c$
 
 Where $c=\frac{sum_i{|x_i|}}{\sum_i{x_i}}$ is the [condition number of the summation](https://en.wikipedia.org/wiki/Pairwise_summation#Accuracy), which is independent from the summation method.
 
-And finally it can also be meaningful to express the error in terms of spacing between two floating points at the value of the sum. The spacing can be roughtly approximated by $\delta(x) \approx \epsilon.x$
+And finally it can also be meaningful to express the error in terms of spacing between two floating points at the value of the sum. The spacing can be roughtly approximated by $\delta(x) \approx \epsilon.x$.
 
-$Err2(n)=\frac{Err0(n)}{\delta(S(n))}=\sqrt{f(n)/3} . c$
+$Err2(n)=e.\frac{Err0(n)}{\delta(S(n))}=\sqrt{f(n)/3}.c$
 
-(*) (E)HPA = (Emulated) Higher Precision Accumulator
+$e=1$, except for straight summation with higher precision summations where $e=\frac{\epsilon}{\epsilon_{sp}}$
 
-Where $\epsilon$ is the machine precision of the base type, $\epsilon'$ the machine precision for the accumulator type, and $c$ the [condition number of the summation](https://en.wikipedia.org/wiki/Pairwise_summation#Accuracy) (which is independent from the method).
+When taking into account all the flavors, we get the following table:
+|                  | $e$         | $f(n)$       | $Err2(n) |
+|------------------|-------------|--------------|----------|
+| sumi             |?            | ?            | ?        |
+| sum_sp           |$1$          | $n$          | $\sqrt{n/3} . c$ |
+| sum_dp           |$~2.10^{-9}$ | $n$          | $2.10^{-9}\sqrt{n/3} . c$ |
+| sum_qp           |$~2.10^{-27}$| $n$          |$2.10^{-27}\sqrt{n/3} . c$ |
+| psum             |$1$          | $\log_2{n}$  | $\sqrt{\log_2{n}/3} . c$ |
+| psum_k           |$1$          | $\log_2{n}+k$| $\sqrt{(\log_2{n}+k)/3} . c$ |
+| ksum             |$1$          | $1$          | $\sqrt{1/3} . c$ |
+| ksum_k           |$1$          | $k$          | $\sqrt{k/3} . c$ |
 
-Takeaway
---------
+Runtimes benchmark
+------------------
+
+
 
 Bisection Select is an efficient algorihtm to find the k smallest values in an unsorted array.
 
