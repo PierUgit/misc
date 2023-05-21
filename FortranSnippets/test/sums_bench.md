@@ -48,9 +48,9 @@ $Err2(n)=e.\frac{Err0(n)}{\delta(S(n))}=\sqrt{f(n)/3}.c$
 $e=1$, except for straight summation with higher precision summations where $e=\frac{\epsilon}{\epsilon_{sp}}$
 
 When taking into account all the flavors, we get the following table:
-|                  | $e$         | $f(n)$       | $Err2(n) |
-|------------------|-------------|--------------|----------|
-| sumi             |?            | ?            | ?        |
+|                  | $e$         | $f(n)$       | $Err2(n)$ |
+|------------------|-------------|--------------|-----------|
+| sumi             |?            | ?            | ?         |
 | sum_sp           |$1$          | $n$          | $\sqrt{n/3} . c$ |
 | sum_dp           |$~2.10^{-9}$ | $n$          | $2.10^{-9}\sqrt{n/3} . c$ |
 | sum_qp           |$~2.10^{-27}$| $n$          |$2.10^{-27}\sqrt{n/3} . c$ |
@@ -59,33 +59,35 @@ When taking into account all the flavors, we get the following table:
 | ksum             |$1$          | $1$          | $\sqrt{1/3} . c$ |
 | ksum_k           |$1$          | $k$          | $\sqrt{k/3} . c$ |
 
-Runtimes benchmark
-------------------
+A comment: in practice, the average error of **sum_dp** is excellent: $Err2(n)$ is larger than $1.0$ only for $n > 10^{18}$. No need to say that with current machine capacities such a large number of elements is totally unlikely. So where is the need of other algorithms? An answer is for instance "in case one wants to sum double precison values while keeping the double precision in the sum, and no higher precision accumulator is available". On x86 machines there exists the native "extended precision" format (80 bits), but such a format does not exist on all architectures. The compilers afiten 
+
+Benchmarks
+----------
+
+The values to sum are random numbers, with two different distributions:
+- **+/-** : uniform distribution in the $[-0.5 ; 0.5[$ interval. The expectation of the sum is 0, and the expected standard deviation is $\sqrt(N/12)$
+- **+++** : uniform distribution in the $[1.0 ; 2.0[$ interval. The expectation of the sum is $1.5*N$, and the expected standard deviation is $\sqrt(N/12)$
+
+The [code](../src/sums_bench.F90) is compiled either with:
+- `gfortran -O3 sums_bench.F90`
+- `gfortran -O3 -ffast-math -DFAST sums_bench.F90`
+
+Runtime benchmark
+-----------------
+
+We use here only the "+/- distribution" with $N=2^30$ elements, the runtimes are summarized on this graph:
+
+![figure 1.0](sums_bench_files/runtimes.png "figure 1.0")
 
 
-
-Bisection Select is an efficient algorihtm to find the k smallest values in an unsorted array.
-
-The input array is left unmodified, and no additional storage is required.
-
-Except in extreme cases the algorithm is in practice always as fast as the QuickSelect algorithm
-(which moreover modifies the input array), and is often faster. 
-
-Preamble
---------
-
-Originally I just wanted to answer a question on Stack Overflow, about how to
-flag the k largest values in an unsorted very large array (about N=10^8 elements). 
-This was pretty much looking like 
-a k-th element selection, but not exactly: finding a separation value was enough, 
-even if not present in the original array.
-
-I hence tried a bisection approach, namely Bisection Select, using a [v1;v2] interval such that 
-count(a(:) <= v1) < k <= count(a(:) <= v2), and progressively refining the interval by 
-bisection. And to compare it to other algorithms I ended up writing also the more
-classical ones, i.e. Quick Select, Heap Select, Insertion Select... and their sorting
-counterparts while I was there, i.e. Quick Sort, Heap Sort, and Insertion Sort. And I benchmarked 
-all of them.
+Observations:
+- the **sum_qp** runtime is clipped on the graph, it is $37.6 sec.$, and $30.8 sec.$ in fast-math. This is horribly slow, and totally overkill for this number of elements to sum. We benchmarked it anyway to show the dramatic runtime increase in the case one need an accumulator of a type that is not native on the hardware.
+- The intrisic **sumi** has the same runtimes than **sum_sp** : we hence can suspect that it is just a straight sum with single precision accumulator
+- The fast-math compilation makes huge difference for all the straight summations (except **sum_qp**), about a 3x speed-up. This is probably because the loop is vectorized in these conditions. 
+- The default **psum** and **ksum** are significantly slower than the straight summations
+- **psum_k** can however get runtimes that are quite close to 
+- With standard compilation, **psum_k** or **ksum_k** can get similar runtimes to the straight summations, at the expanse of a slightly worse accuracy. Still, the accuracy remains much better than with **sum_sp**. With fast-math, however, the straight summations are about 3x faster.
+- **sum_dp** is about 50% slower than **sum_sp** with fast-math.
 
 Bisection Select
 ----------------
