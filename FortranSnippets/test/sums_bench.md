@@ -79,15 +79,14 @@ We use here only the "+/- distribution" with $N=2^30$ elements, the runtimes are
 
 ![figure 1.0](sums_bench_files/runtimes.png "figure 1.0")
 
-
 Observations:
-- the **sum_qp** runtime is clipped on the graph, it is $37.6 sec.$, and $30.8 sec.$ in fast-math. This is horribly slow, and totally overkill for this number of elements to sum. We benchmarked it anyway to show the dramatic runtime increase in the case one need an accumulator of a type that is not native on the hardware.
-- The intrisic **sumi** has the same runtimes than **sum_sp** : we hence can suspect that it is just a straight sum with single precision accumulator
-- The fast-math compilation makes huge difference for all the straight summations (except **sum_qp**), about a 3x speed-up. This is probably because the loop is vectorized in these conditions. 
-- The default **psum** and **ksum** are significantly slower than the straight summations
-- **psum_k** can however get runtimes that are quite close to 
-- With standard compilation, **psum_k** or **ksum_k** can get similar runtimes to the straight summations, at the expanse of a slightly worse accuracy. Still, the accuracy remains much better than with **sum_sp**. With fast-math, however, the straight summations are about 3x faster.
+- the **sum_qp** runtime is clipped on the graph, it is $37.6 sec.$, and $30.8 sec.$ in fast-math: as expected, it is horribly slow.
+- The intrisic **sumi** has the same runtimes than **sum_sp** : we can hence suspect it is just a straight summation with a single precision accumulator
+- The fast-math compilation makes huge difference (about a 3x speed-up) for all the straight summations (except **sum_qp**). This is probably because the loop can be vectorized in these conditions. 
 - **sum_dp** is about 50% slower than **sum_sp** with fast-math.
+- The default **psum** and **ksum** are significantly slower than the straight summations
+- **psum_k** can however get runtimes that are quite close to **sum_dp** ("only" 50% slower with fast-math), at the expanse of a slighty worse accuracy (but still very acceptable)
+- **ksum_k** remains 2x to 3x slower than **sum_dp** with fast-math.
 
 Bisection Select
 ----------------
