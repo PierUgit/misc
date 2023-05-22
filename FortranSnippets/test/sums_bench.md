@@ -29,9 +29,9 @@ The maximum absolute error of the sum of N elements, $S(n)=\sum_i{x_i}$ is bound
 
 Note the denominator that can lead to catastrophic errors when $\epsilon f(n)$ is no longer negligible wrt $1$ (say above $0.1$). In single precision it means as soon as $n$ is larger than $10^6$, and in double precision larger than $10^{14}$. The classical example is the straight summation of $x_i=1.0$ in single precision: the actual sum is equal to N for $N<=2^{24}=16777216$ (24 being the number of bits in the mantissa of a IEEE754 single precision floating point), and to 16777216 whatever $N>2^{24}$, since $2^{24}+1.0=2^{24}$.
 
-**In the rest of the document we assume that we are in the case where the denominator can be neglected**: $Err0_max(n)=1-\epsilon f(n)<<1$
+**In the rest of the document we assume that we are in the case where the denominator can be neglected**: $Err0_{max}(n)=1-\epsilon f(n)<<1$
 
-The maximum absolute error is then $Err0_max(n)=\epsilon f(n) \sum_i{|x_i|}$. This worst case happens when all the rounding errors have the same sign. In practice they behave as a random walk, with signs that can be either positive or negative. The error has then a normal distribution, and we can take the standard deviation as the average error:
+The maximum absolute error is then $Err0_{max}(n)=\epsilon f(n) \sum_i{|x_i|}$. This worst case happens when all the rounding errors have the same sign. In practice they behave as a random walk, with signs that can be either positive or negative. The error has then a normal distribution, and we can take the standard deviation as the average error:
 
 $Err0(n)=\epsilon \sqrt{f(n)/3} \sum_i{|x_i|}$
 
@@ -65,8 +65,8 @@ Benchmarks
 ----------
 
 The values to sum are random numbers, with two different distributions:
-- **+/-** : uniform distribution in the $[-0.5 ; 0.5[$ interval. The expectation of the sum is 0, and the expected standard deviation is $\sqrt(N/12)$
-- **+++** : uniform distribution in the $[1.0 ; 2.0[$ interval. The expectation of the sum is $1.5*N$, and the expected standard deviation is $\sqrt(N/12)$
+- **+/-** : uniform distribution in the $[-0.5 ; 0.5[$ interval. The expectation of the sum is 0, and the expected standard deviation is $\sqrt{N/12}$
+- **+++** : uniform distribution in the $[1.0 ; 2.0[$ interval. The expectation of the sum is $1.5*N$, and the expected standard deviation is $\sqrt{N/12}$
 
 The [code](../src/sums_bench.F90) is compiled either with:
 - `gfortran -O3 sums_bench.F90`
@@ -75,7 +75,7 @@ The [code](../src/sums_bench.F90) is compiled either with:
 Runtime benchmark
 -----------------
 
-We use here only the "+/- distribution" with $N=2^30$ elements, the runtimes are summarized on this graph:
+We use here only the "+/- distribution" with $N=2^{30}$ elements, the runtimes are summarized on this graph:
 
 ![figure 0.1](sums_bench_files/runtimes.png "figure 0.1")
 
@@ -95,7 +95,7 @@ Unless otherwise specified, we are looking at the benchmarks with the default co
 
 ![figure 1.0](sums_bench_files/fig10.png "figure 1.0")
 
-All graphs have a log horizontal axis. In this representation, a $f(n)=\sqrt(n)$ law looks like an exponential, and $f(n)=\sqrt(log_2(n))$ looks like a $\sqrt$ curve.
+All graphs have a log horizontal axis. In this representation, a $f(n)=\sqrt{n}$ law looks like an exponential, and $f(n)=\sqrt{log_2(n)}$ looks like a $\sqrt{}$ curve.
 
 
 # "+/-" distribution
@@ -107,7 +107,7 @@ The condition number of the sum is xxxxx. First we compare the genuine versions 
 Observations:
 - **sum_dp** and **ksum** have constantly an error that is equal to zero
 - **sumi** and **sum_sp** behave exactly the same, with superimposed curves that grow exponentially. This definitely shows that the intrinsic sum is implemented with a straightforward loop and a single precision accumulator
-- **psum** has an overall $\sqrt$ shape, as expected.
+- **psum** has an overall $\sqrt{}$ shape, as expected.
 
 Looking now at the variants of **psum** specifically:
 
@@ -131,14 +131,14 @@ The condition number of the sum is $1.0$. First we compare the genuine versions 
 Observations:
 - **ksum** has almost constantly an error that is equal to zero, except in a few places. However, remind that **sum_dp** is retained as the reference (true) result, while it is rather a (very good) approximation. In border cases, this can lead to "false error" attributed to the **ksum**
 - **sumi** and **sum_sp** behave exactly the same, with superimposed curves that grow exponentially. This definitely shows that the intrinsic sum is implemented with a straightforward loop and a single precision accumulator
-- **psum** has an overall constant error, while a $\sqrt$ shape is expected.
+- **psum** has an overall constant error, while a $\sqrt{}$ shape is expected.
 
 Looking now at the variants of **psum** specifically:
 
 ![figure 1.2](sums_bench_files/fig12.png "figure 1.2")
 
 Observations:
-- the error first grow fast up to the number of elements that are classical summed, then it tends to reproduce again the $\sqrt$ behavior.
+- the error first grow fast up to the number of elements that are classical summed, then it tends to reproduce again the $\sqrt{}$ behavior.
 - even **psum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost).
 
 Looking now at the variants of **ksum** specifically:
