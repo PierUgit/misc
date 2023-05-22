@@ -172,7 +172,6 @@ n = 2**P2MAX
 100 format(A10,F16.4,X,F8.1,F10.3)
 101 format(10X,A16  ,X,A8  ,A10  )
 allocate(a(N))
-call random_number(a)
 filename = "../test/sums_bench_files/bench" // trim(suffix) // "_1.txt"
 open(newunit=lu,file=filename)
 
@@ -189,19 +188,21 @@ write(*,*) "* Kahan                             * Kahan with 10/100/1000 chunk l
 METATESTS:do metatest = 1, 2
 !---------------------------
 
+call random_number(a)
 if (metatest == 1) then
    write(*,*) stringsep ; write(lu,*) stringsep
    write(string,*) "Random numbers in the [-0.5 ; 0.5[ interval"
    write(*,*) string    ; write(lu,*) string
    write(*,*) stringsep ; write(lu,*) stringsep
    a = a - 0.5   ! all values between -0.5 and 0.5
-   ref = sqrt(n/12.0)   ! expected standard deviation of the sum
+   ref = n/100.0   ! ~forcing the sum to this value
+   a = a - sum1(a)/n + ref/n
 else if (metatest == 2) then
    write(*,*) stringsep; write(lu,*) stringsep
    write(string,*) "Random numbers in the [1.0 ; 2.0[ interval"
    write(*,*) string    ; write(lu,*) string
    write(*,*) stringsep; write(lu,*) stringsep
-   a = a + 1.5    ! all values between 1.0 and 2.0
+   a = a + 1.0   ! all values between 1.0 and 2.0
    ref = 1.5*n   ! expectation of the sum
 end if
 
@@ -349,36 +350,37 @@ do k = 0, P2MAX*P2INC
    call random_number(a)
    if (metatest == 1) then
       a = a - 0.5   ! all values between -0.5 and 0.5
-      ref = sqrt(n/12.0)   ! expected standard deviation of the sum 
+      ref = n/100.0   ! ~forcing the sum to this value
+      a = a - sum1(a)/n + ref/n
    else if (metatest == 2) then
-      a = a + 1.5    ! all values between 1.0 and 2.0
+      a = a + 1.0    ! all values between 1.0 and 2.0
       ref = 1.5*n   ! expectation of the sum
    end if
-   !$OMP PARALLEL SECTIONS
+   !$OMP PARALLEL SECTIONS IF(n > 100000)
    !$OMP SECTION
       allsums(0) = psum_dp(a)
+   !$OMP SECTION
+      allsums(8) = ksum(a)
+   !$OMP SECTION
+      allsums(4) = psum(a)
+   !$OMP SECTION
+      allsums(9) = ksumc(a,10)
+   !$OMP SECTION
+      allsums(5) = psum(a,10)
+   !$OMP SECTION
+      allsums(10) = ksumc(a,100)
+   !$OMP SECTION
+      allsums(6) = psum(a,100)
+   !$OMP SECTION
+      allsums(11) = ksumc(a,1000)
+   !$OMP SECTION
+      allsums(7) = psum(a,1000)
    !$OMP SECTION
       allsums(1) = sum(a)
    !$OMP SECTION
       allsums(2) = sum0(a)
    !$OMP SECTION
       allsums(3) = sum1(a)
-   !$OMP SECTION
-      allsums(4) = psum(a)
-   !$OMP SECTION
-      allsums(5) = psum(a,10)
-   !$OMP SECTION
-      allsums(6) = psum(a,100)
-   !$OMP SECTION
-      allsums(7) = psum(a,1000)
-   !$OMP SECTION
-      allsums(8) = ksum(a)
-   !$OMP SECTION
-      allsums(9) = ksumc(a,10)
-   !$OMP SECTION
-      allsums(10) = ksumc(a,100)
-   !$OMP SECTION
-      allsums(11) = ksumc(a,1000)
    !$OMP END PARALLEL SECTIONS
    allerrs = (allsums(:)-allsums(0))/spacing(ref)
    write(lu,*) metatest,n,allerrs(1:)
