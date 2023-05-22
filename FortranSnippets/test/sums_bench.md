@@ -1,3 +1,5 @@
+# !!! work in progress !!!
+
 Benchmark of 1D floating point summation methods
 ================================================
 
@@ -20,18 +22,18 @@ The tests are performed on a x86 machine (an old Core i5 2500K from 2011), with 
 Accuracy analysis
 -----------------
 
-The maximum absolute error of the sum of N elements, $S(n)=\sum_i{x_i}$ is bounded by $Err0_max(n)=\frac{\epsilon f(n)}{1-\epsilon f(n)}\sum_i{|x_i|}$, where $\epsilon$ is the machine precision (about ~$10^{-7}$ for IEEE-754 single precision), and $f(n)$ a function that depends on the summation method:
+The maximum absolute error of the sum of $n$ elements, $S(n)=\sum_i{x_i}$ is bounded by $Err0_max(n)=\frac{\epsilon f(n)}{1-\epsilon f(n)}\sum_i{|x_i|}$, where $\epsilon$ is the machine precision (about $10^{-7}$ for IEEE-754 single precision), and $f(n)$ a function that depends on the summation method:
 |                  | $f(n)$            | Notes |
 |------------------|-------------------|-------|
 | straight         | $n$               | $\epsilon$ is the one of the accumulator! |
 | pairwise         | $\log_2{n}$       |       |
 | Kahan            | $1$               |       |
 
-Note the denominator that can lead to catastrophic errors when $\epsilon f(n)$ is no longer negligible wrt $1$ (say above $0.1$). In single precision it means as soon as $n$ is larger than $10^6$, and in double precision larger than $10^{14}$. The classical example is the straight summation of $x_i=1.0$ in single precision: the actual sum is equal to N for $N<=2^{24}=16777216$ (24 being the number of bits in the mantissa of a IEEE754 single precision floating point), and to 16777216 whatever $N>2^{24}$, since $2^{24}+1.0=2^{24}$.
+Note the denominator that can lead to catastrophic errors when $\epsilon f(n)$ is no longer negligible wrt $1$ (say above $0.1$). In single precision it means as soon as $n$ is larger than $10^6$, and in double precision larger than $10^{14}$. The classical example is the straight summation of $x_i=1.0$ in single precision: the actual sum is equal to $n$ for $n<=2^{24}=16777216$ (24 being the number of bits in the mantissa in single precision), and to $16777216$ whatever $n>2^{24}$, since $2^{24}+1.0=2^{24}$.
 
-**In the rest of the document we assume that we are in the case where the denominator can be neglected**: $Err0_{max}(n)=1-\epsilon f(n)<<1$
+**In the rest of the document we assume that we are in the case where the denominator can be neglected**: $1-\epsilon f(n)<<1$
 
-The maximum absolute error is then $Err0_{max}(n)=\epsilon f(n) \sum_i{|x_i|}$. This worst case happens when all the rounding errors have the same sign. In practice they behave as a random walk, with signs that can be either positive or negative. The error has then a normal distribution, and we can take the standard deviation as the average error:
+The maximum absolute error is then $Err0_{max}(n)=\epsilon f(n) \sum_i{|x_i|}$. This worst case happen when all the rounding errors have the same sign. In practice they rather behave as a random walk, with signs that can be either positive or negative. The error has then a normal distribution, and we can take the standard deviation as the average error:
 
 $Err0(n)=\epsilon \sqrt{f(n)/3} \sum_i{|x_i|}$
 
@@ -39,7 +41,7 @@ What is often considered instead of the absolute error is the relative error:
 
 $Err1(n)=\frac{Err0(n)}{S(n)}=\epsilon \sqrt{f(n)/3} . c$ 
 
-Where $c=\frac{sum_i{|x_i|}}{\sum_i{x_i}}$ is the [condition number of the summation](https://en.wikipedia.org/wiki/Pairwise_summation#Accuracy), which is independent from the summation method.
+Where $c=\frac{\sum_i{|x_i|}}{\sum_i{x_i}}$ is the [condition number of the summation](https://en.wikipedia.org/wiki/Pairwise_summation#Accuracy), which is independent from the summation method.
 
 And finally it can also be meaningful to express the error in terms of spacing between two floating points at the value of the sum. The spacing can be roughtly approximated by $\delta(x) \approx \epsilon.x$.
 
@@ -65,8 +67,8 @@ Benchmarks
 ----------
 
 The values to sum are random numbers, with two different distributions:
-- **+/-** : uniform distribution in the $[-0.5 ; 0.5[$ interval. The expectation of the sum is 0, and the expected standard deviation is $\sqrt{N/12}$
-- **+++** : uniform distribution in the $[1.0 ; 2.0[$ interval. The expectation of the sum is $1.5*N$, and the expected standard deviation is $\sqrt{N/12}$
+- **+/- distribution** : uniform distribution in the $[-0.5 ; 0.5[$ interval. The expectation of the sum is $0$, and the expected standard deviation is $\sqrt{n/12}$
+- **+++ distribution** : uniform distribution in the $[1.0 ; 2.0[$ interval. The expectation of the sum is $1.5*n$, and the expected standard deviation is $\sqrt{n/12}$
 
 The [code](../src/sums_bench.F90) is compiled either with:
 - `gfortran -O3 sums_bench.F90`
@@ -75,7 +77,7 @@ The [code](../src/sums_bench.F90) is compiled either with:
 Runtime benchmark
 -----------------
 
-We use here only the "+/- distribution" with $N=2^{30}$ elements, the runtimes are summarized on this graph:
+We use here only the "+/- distribution" with $n=2^{30}$ elements, the runtimes are summarized on this graph:
 
 ![figure 0.1](sums_bench_files/runtimes.png "figure 0.1")
 
@@ -91,16 +93,17 @@ Observations:
 Accuracy benchmark
 ------------------
 
-Unless otherwise specified, we are looking at the benchmarks with the default compilation only. We are summing random numbers for values of $n$ from $2$ to $2^30$. The distribution of the errors being following a normal distribution, the graphs can be a bit obscure (black points below), so what we will plot in the rest of the document is a moving root mean square value (representing a local estimation of the average error):
+Unless otherwise specified, we are looking at the benchmarks with the default compilation only (no fast-math). We are summing random numbers for values of $n$ from $2$ to $2^{30}$. The distribution of the errors being following a normal distribution, the graphs can be a bit obscure (black points below), so what we will plot in the rest of the document is a moving root mean square (RMS) value, that represents a local estimation of the average error:
 
 ![figure 1.0](sums_bench_files/fig10.png "figure 1.0")
 
-All graphs have a log horizontal axis. In this representation, a $f(n)=\sqrt{n}$ law looks like an exponential, and $f(n)=\sqrt{log_2(n)}$ looks like a $\sqrt{}$ curve.
+All graphs have a logarithmic horizontal axis. In this representation, a $f(n)=\sqrt{n}$ law looks like an exponential, and $f(n)=\sqrt{log_2(n)}$ looks like a $\sqrt{()}$ curve.
 
+An important point to determine the error is the reference result, supposed to be the "true summation". It could have been the **sum_qp** result, as the theoretical behavior ensures an extremely low error for the range of $n$ we use, but **sum_qp** proved to be too slow for repeated tests. Instead we use a full double precision version of the pairwise summation for the reference result. 
 
 # "+/-" distribution
 
-The condition number of the sum is xxxxx. First we compare the genuine versions of the methods:
+The condition number of the sum is not constant and tends to infinity when the actual sum tends to zero. First we compare the genuine versions of the methods:
 
 ![figure 1.1](sums_bench_files/fig11.png "figure 1.1")
 
