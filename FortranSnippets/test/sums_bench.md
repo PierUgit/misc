@@ -114,7 +114,7 @@ Looking now at the variants of **psum** specifically:
 ![figure 1.2](sums_bench_files/fig12.png "figure 1.2")
 
 Observations:
-- the error first grow fast up to the number of elements that are classical summed, then it tends to reproduce again the $\sqrt$ behavior.
+- the error first grow fast up to the number of elements that are classical summed, then it tends to reproduce again the $\sqrt{}$ behavior.
 - even **psum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost).
 
 Looking now at the variants of **ksum** specifically:
