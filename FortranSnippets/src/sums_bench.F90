@@ -64,6 +64,22 @@ contains
    s = psum(a(1:k),chunk) + psum(a(k+1:n),chunk)
    end function
    
+   ! pairwise summation in full double precision
+   pure recursive real(dp) function psum_dp(a) result(s)
+   real(sp), intent(in) :: a(:)
+   integer :: n, k
+   n = size(a)
+   if (n == 2) then
+      s = real(a(1),dp) + real(a(2),dp)
+      return
+   else if (n == 1) then
+      s = real(a(1),dp)
+      return
+   end if
+   k = (n+1)/2
+   s = psum_dp(a(1:k)) + psum_dp(a(k+1:n))
+   end function
+
    ! Kahan summation 
    !!! possibly defeated by agressive compiler optimizations !!!
    ! taken for Beliavsky on Fortran Discourse
@@ -134,7 +150,7 @@ implicit none
 
 real(sp), allocatable :: a(:)
 integer, parameter :: P2MAX=30
-integer :: i, k, n, metatest, lu
+integer :: i, k, n, metatest, lu, lseed
 real :: ref
 character(len=96) :: string, stringsep, suffix, filename
 
@@ -143,7 +159,8 @@ suffix = ""
 suffix = "_fast"
 #endif
 
-
+call random_seed(size=lseed)
+call random_seed(put=[(0,i=1,lseed)])
 
 TIMES: BLOCK 
 
@@ -152,8 +169,8 @@ real(sp) :: s, ss, tt, time
 
 n = 2**P2MAX
 
-100 format(A10,F16.4,2(X,F8.1),F10.3)
-101 format(10X,A16  ,2(X,A8  ),A10)
+100 format(A10,F16.4,X,F8.1,F10.3)
+101 format(10X,A16  ,X,A8  ,A10  )
 allocate(a(N))
 call random_number(a)
 filename = "../test/sums_bench_files/bench" // trim(suffix) // "_1.txt"
@@ -188,7 +205,7 @@ else if (metatest == 2) then
    ref = 1.5*n   ! expectation of the sum
 end if
 
-write(string,101) "Sum", "error1", "error2", "time" 
+write(string,101) "Sum", "error2", "time" 
 write(*,*) string    ; write(lu,*) string
      
 call tictoc()
@@ -204,7 +221,7 @@ do i = 1, ITER
    s = s + sum(a)
 end do
 call tictoc(time)
-write(string,100) "sum       =", s, (s-ss)/spacing(s), (s-ss)/spacing(ref), time
+write(string,100) "sum       =", s, (s-ss)/spacing(ref), time
 write(*,*) string    ; write(lu,*) string
 
 call tictoc()
@@ -213,7 +230,7 @@ do i = 1, ITER
    s = s + sum0(a)
 end do
 call tictoc(time)
-write(string,100) "sum_sp    =", s, (s-ss)/spacing(s), (s-ss)/spacing(ref), time
+write(string,100) "sum_sp    =", s, (s-ss)/spacing(ref), time
 write(*,*) string    ; write(lu,*) string
 
 call tictoc()
@@ -222,10 +239,10 @@ do i = 1, ITER
    s = s + sum1(a)
 end do
 call tictoc(time)
-write(string,100) "sum_dp    =", s, (s-ss)/spacing(s), (s-ss)/spacing(ref), time
+write(string,100) "sum_dp    =", s, (s-ss)/spacing(ref), time
 write(*,*) string    ; write(lu,*) string
 
-write(string,100) "sum_qp    =", ss, 0.0, 0.0, tt
+write(string,100) "sum_qp    =", ss, 0.0, tt
 write(*,*) string    ; write(lu,*) string
 
 call tictoc()
@@ -234,7 +251,7 @@ do i = 1, ITER
    s = s + psum(a)
 end do
 call tictoc(time)
-write(string,100) "psum      =", s, (s-ss)/spacing(s), (s-ss)/spacing(ref), time
+write(string,100) "psum      =", s, (s-ss)/spacing(ref), time
 write(*,*) string    ; write(lu,*) string
 
 call tictoc()
@@ -243,7 +260,7 @@ do i = 1, ITER
    s = s + psum(a,10)
 end do
 call tictoc(time)
-write(string,100) "psum_10   =", s, (s-ss)/spacing(s), (s-ss)/spacing(ref), time
+write(string,100) "psum_10   =", s, (s-ss)/spacing(ref), time
 write(*,*) string    ; write(lu,*) string
 
 call tictoc()
@@ -252,7 +269,7 @@ do i = 1, ITER
    s = s + psum(a,100)
 end do
 call tictoc(time)
-write(string,100) "psum_100  =", s, (s-ss)/spacing(s), (s-ss)/spacing(ref),time
+write(string,100) "psum_100  =", s, (s-ss)/spacing(ref),time
 write(*,*) string    ; write(lu,*) string
 
 call tictoc()
@@ -261,7 +278,7 @@ do i = 1, ITER
    s = s + psum(a,1000)
 end do
 call tictoc(time)
-write(string,100) "psum_1000 =", s, (s-ss)/spacing(s), (s-ss)/spacing(ref), time
+write(string,100) "psum_1000 =", s, (s-ss)/spacing(ref), time
 write(*,*) string    ; write(lu,*) string
 
 call tictoc()
@@ -270,7 +287,7 @@ do i = 1, ITER
    s = s + ksum(a)
 end do
 call tictoc(time)
-write(string,100) "ksum      =", s, (s-ss)/spacing(s), (s-ss)/spacing(ref), time
+write(string,100) "ksum      =", s, (s-ss)/spacing(ref), time
 write(*,*) string    ; write(lu,*) string
 
 call tictoc()
@@ -279,7 +296,7 @@ do i = 1, ITER
    s = s + ksumc(a,10)
 end do
 call tictoc(time)
-write(string,100) "ksum_10   =", s, (s-ss)/spacing(s), (s-ss)/spacing(ref), time
+write(string,100) "ksum_10   =", s, (s-ss)/spacing(ref), time
 write(*,*) string    ; write(lu,*) string
 
 call tictoc()
@@ -288,7 +305,7 @@ do i = 1, ITER
    s = s + ksumc(a,100)
 end do
 call tictoc(time)
-write(string,100) "ksum_100  =", s, (s-ss)/spacing(s), (s-ss)/spacing(ref), time
+write(string,100) "ksum_100  =", s, (s-ss)/spacing(ref), time
 write(*,*) string    ; write(lu,*) string
 
 call tictoc()
@@ -297,7 +314,7 @@ do i = 1, ITER
    s = s + ksumc(a,1000)
 end do
 call tictoc(time)
-write(string,100) "ksum_1000 =", s, (s-ss)/spacing(s), (s-ss)/spacing(ref), time
+write(string,100) "ksum_1000 =", s, (s-ss)/spacing(ref), time
 write(*,*) string    ; write(lu,*) string
 
 !---------------
@@ -314,7 +331,7 @@ END BLOCK TIMES
 
 ACCURRACIES: BLOCK 
 
-real(sp) :: allsums(11), allerrs(11)
+real(sp) :: allsums(0:11), allerrs(0:11)
 integer, parameter :: P2INC = 16
 
 write(*,*) stringsep
@@ -339,6 +356,8 @@ do k = 0, P2MAX*P2INC
    end if
    !$OMP PARALLEL SECTIONS
    !$OMP SECTION
+      allsums(0) = psum_dp(a)
+   !$OMP SECTION
       allsums(1) = sum(a)
    !$OMP SECTION
       allsums(2) = sum0(a)
@@ -361,8 +380,8 @@ do k = 0, P2MAX*P2INC
    !$OMP SECTION
       allsums(11) = ksumc(a,1000)
    !$OMP END PARALLEL SECTIONS
-   allerrs = (allsums(:)-allsums(3))/spacing(ref)
-   write(lu,*) metatest,n,allerrs(:)
+   allerrs = (allsums(:)-allsums(0))/spacing(ref)
+   write(lu,*) metatest,n,allerrs(1:)
    deallocate(a)
 end do
 
