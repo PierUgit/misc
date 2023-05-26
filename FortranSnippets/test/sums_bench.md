@@ -149,14 +149,14 @@ Looking now at the variants of **psum** specifically:
 ![figure 1.5](sums_bench_files/fig15.png "figure 1.5")
 
 Observations:
-- the error first grow fast up to the number of elements that are classical summed, then it tends to reproduce again the $\sqrt{}$ behavior.
-- even **psum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost).
+- the error first grow fast up to the number of elements that are classical summed, then it gets back to a small constant error, instead of the $\sqrt{}$ behavior.
+- even **psum_1000** has an error less than 4 ($Err2=10$ means that a full significant digit is lost).
 
 Looking now at the variants of **ksum** specifically:
 
 ![figure 1.6](sums_bench_files/fig16.png "figure 1.6")
 
-- the error first grow fast up to the number of elements in the chunk, then it tends to keep a "constant" trend
+- the error first grow fast up to the number of elements in the chunk, then it tends to keep a constant trend
 - even **ksum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost). The main interest is that the average error is supposed to be kept constant whatever $n$ above the chunk size.
 
 
