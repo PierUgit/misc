@@ -65,14 +65,14 @@ When taking into account all the flavors, we get the following table:
 | ksum             |$1$          | $1$          | $O(1) . c$ |
 | ksum_k           |$1$          | $k$          | $O(\sqrt{k}) . c$ |
 
-A comment: in practice, the average error of **sum_dp** is excellent: $Err2(n)$ is larger than $1.0$ only for $n > 10^{18}$. No need to say that with current machine capacities such a large number of elements is totally unlikely. So where is the need of other algorithms? An answer is for instance "in case one wants to sum double precison values while keeping the double precision in the sum, and no higher precision accumulator is available". On x86 machines there exists the native "extended precision" format (80 bits), but such a format does not exist on all architectures. The compilers often propose the quadruple precision, but as of today it is most of time software emulated, hence quite slow as we will see below. 
+In practice, the average error of **sum_dp** is excellent: $Err2(n)$ is larger than $1.0$ only for $n > 10^{18}$. No need to say that with current machine capacities such a large number of elements is totally unlikely. So where is the need of other algorithms? An answer is for instance "in case one wants to sum double precison values while keeping the double precision in the sum, and no higher precision accumulator is available". On x86 machines there exists the native "extended precision" format (80 bits), but such a format does not exist on all architectures. The compilers often propose the quadruple precision, but as of today it is most of time software emulated, hence quite slow as we will see below. 
 
 Benchmarks
 ----------
 
 The values to sum are random numbers, with two different distributions:
-- **+/- distribution** : uniform distribution in the $[-0.499 ; 0.501[$ interval, . The expectation of the sum is $0.01*n$, and the expected standard deviation is $\sqrt{n/12}$
-- **+++ distribution** : uniform distribution in the $[1.0 ; 2.0[$ interval. The expectation of the sum is $1.5*n$, and the expected standard deviation is $\sqrt{n/12}$
+- **+/- distribution** : uniform distribution in the $[-0.499 ; 0.501[$ interval, . The expectation of the sum is $0.01*n$, and the condition number is asymptotically equal to $25$.
+- **+++ distribution** : uniform distribution in the $[1.0 ; 2.0[$ interval. The expectation of the sum is $1.5*n$, and the condition number is $1$.
 
 The [code](../src/sums_bench.F90) is compiled either with:
 - `gfortran -O3 sums_bench.F90`
@@ -107,24 +107,28 @@ An important point to determine the error is the reference result, supposed to b
 
 # "+/-" distribution
 
-The condition number of the sum is not constant and tends to infinity when the actual sum tends to zero. First we compare the genuine versions of the methods:
+TFirst we compare the genuine versions of the methods:
 
 ![figure 1.1](sums_bench_files/fig11.png "figure 1.1")
 
 Observations:
-- **sum_dp** and **ksum** have constantly an error that is equal to zero
-- **sumi** and **sum_sp** behave exactly the same, with superimposed curves that grow exponentially. This definitely shows that the intrinsic sum is implemented with a straightforward loop and a single precision accumulator
-- **psum** has an overall $\sqrt{}$ shape, as expected.
+- **sum_dp** has constantly an error that is equal to zero
+- **sumi** and **sum_sp** behave exactly the same, with superimposed curves that grow exponentially. This tends to show that the intrinsic sum is implemented as a straightforward loop with a single precision accumulator
+- both **psum** and **ksum** tend to have a constant error, after a booth in the small $n$ values. We don't observe the expected $\sqrt{}$ shape for **psum**.
 
 Looking now at the variants of **psum** specifically:
 
 ![figure 1.2](sums_bench_files/fig12.png "figure 1.2")
 
 Observations:
-- the error first grow fast up to the number of elements that are classical summed, then it tends to reproduce again the $\sqrt{}$ behavior.
-- even **psum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost).
+- the errors first grow up to the number of elements that are classical summed, then tend to get back to a more or less constant error
+- again, we don't observe the expected $\sqrt{}$ behavior.
+- even **psum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost on average).
 
 Looking now at the variants of **ksum** specifically:
+
+![figure 1.3](sums_bench_files/fig13.png "figure 1.3")
+
 - the error first grow fast up to the number of elements in the chunk, then it tends to keep a "constant" trend
 - even **ksum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost). The main interest is that the average error is supposed to be kept constant whatever $n$ above the chunk size.
 
