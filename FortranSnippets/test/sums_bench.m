@@ -1,4 +1,4 @@
-isFAST = true;
+isFAST = false;
 
 
 

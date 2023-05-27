@@ -7,13 +7,17 @@ module sums
 ! or
 !    gfortran -O3 -ffast-math -DFAST -fopenmp sums_bench.F90
 !***********************************************************************************************
-use iso_fortran_env, only: sp => real32, dp => real64, qp => real128
+use iso_fortran_env, only: sp => real32, &
+                           dp => real64, &
+                           qp => real128
 implicit none
+
+integer, parameter :: ep = selected_real_kind(p=precision(0.0_dp)+1)
 
 contains
 
    ! simple do loop with single precision accumulator
-   pure real(sp) function sum0(a) result(s)
+   pure real(sp) function sum_sp(a) result(s)
    real(sp), intent(in) :: a(:)
    integer :: i
    s = 0.0_sp
@@ -24,7 +28,7 @@ contains
    end function
    
    ! simple do loop with double precision accumulator
-   pure real(sp) function sum1(a) result(s)
+   pure real(sp) function sum_dp(a) result(s)
    real(sp), intent(in) :: a(:)
    integer :: i
    real(dp) :: ss
@@ -36,8 +40,21 @@ contains
    s = ss
    end function
    
+   ! simple do loop with extended precision accumulator
+   pure real(sp) function sum_ep(a) result(s)
+   real(sp), intent(in) :: a(:)
+   integer :: i
+   real(ep) :: ss
+   ss = 0.0_ep
+   !!$OMP SIMD REDUCTION(+:ss)
+   do i = 1, size(a)
+      ss = ss + a(i)
+   end do
+   s = ss
+   end function
+   
    ! simple do loop with quadruple precision accumulator (emulated)
-   pure real(sp) function sum2(a) result(s)
+   pure real(sp) function sum_qp(a) result(s)
    real(sp), intent(in) :: a(:)
    integer :: i
    real(qp) :: ss
@@ -184,25 +201,24 @@ write(*,*) "* do loop with a real64 accumulator * do loop with a real128 accumul
 write(*,*) "* pairwise                          * pairwise with 10/100/1000 chunk length"
 write(*,*) "* Kahan                             * Kahan with 10/100/1000 chunk length"
 
+call random_number(a) 
 !---------------------------
 METATESTS:do metatest = 1, 2
 !---------------------------
 
-call random_number(a)
 if (metatest == 1) then
    write(*,*) stringsep ; write(lu,*) stringsep
    write(string,*) "Random numbers in the [-0.5 ; 0.5[ interval"
    write(*,*) string    ; write(lu,*) string
    write(*,*) stringsep ; write(lu,*) stringsep
-   a = a - 0.5   ! all values between -0.5 and 0.5
-   ref = n/100.0   ! ~forcing the sum to this value
-   a = a - sum1(a)/n + ref/n
+   a = a - 0.5   ! all values between -0.5 and 0.50
+   ref = sqrt(n/12.0)   ! expectation of the std deviation
 else if (metatest == 2) then
    write(*,*) stringsep; write(lu,*) stringsep
    write(string,*) "Random numbers in the [1.0 ; 2.0[ interval"
    write(*,*) string    ; write(lu,*) string
    write(*,*) stringsep; write(lu,*) stringsep
-   a = a + 1.0   ! all values between 1.0 and 2.0
+   a = a + 1.5   ! all values between 1.0 and 2.0
    ref = 1.5*n   ! expectation of the sum
 end if
 
@@ -212,7 +228,7 @@ write(*,*) string    ; write(lu,*) string
 call tictoc()
 ss = 0.0
 do i = 1, ITER
-   ss = ss + sum2(a)
+   ss = ss + sum_qp(a)
 end do
 call tictoc(tt)
 
@@ -228,7 +244,7 @@ write(*,*) string    ; write(lu,*) string
 call tictoc()
 s = 0.0
 do i = 1, ITER
-   s = s + sum0(a)
+   s = s + sum_sp(a)
 end do
 call tictoc(time)
 write(string,100) "sum_sp    =", s, (s-ss)/spacing(ref), time
@@ -237,7 +253,7 @@ write(*,*) string    ; write(lu,*) string
 call tictoc()
 s = 0.0
 do i = 1, ITER
-   s = s + sum1(a)
+   s = s + sum_dp(a)
 end do
 call tictoc(time)
 write(string,100) "sum_dp    =", s, (s-ss)/spacing(ref), time
@@ -332,65 +348,74 @@ END BLOCK TIMES
 
 ACCURRACIES: BLOCK 
 
-real(sp) :: allsums(0:11), allerrs(0:11)
+real(sp) :: allsums(0:11)
 integer, parameter :: P2INC = 16
+real, allocatable :: allerrs(:,:,:)
+
+allocate( allerrs(11,0:P2MAX*P2INC,2) )
 
 write(*,*) stringsep
-filename = "../test/sums_bench_files/bench" // trim(suffix) // "_2.txt"
-open(newunit=lu,file=filename)
 
 !---------------------------
-METATESTS:do metatest = 1, 2
 !---------------------------
 
 do k = 0, P2MAX*P2INC
    n = nint(2**(k/P2INC) * 2d0**(mod(k,P2INC)/real(P2INC,kind=dp)))
-   write(*,*) metatest, n
+   write(*,*) n
    allocate(a(n))
    call random_number(a)
-   if (metatest == 1) then
-      a = a - 0.5   ! all values between -0.5 and 0.5
-      ref = n/100.0   ! ~forcing the sum to this value
-      a = a - sum1(a)/n + ref/n
-   else if (metatest == 2) then
-      a = a + 1.0    ! all values between 1.0 and 2.0
-      ref = 1.5*n   ! expectation of the sum
-   end if
-   !$OMP PARALLEL SECTIONS IF(n > 100000)
-   !$OMP SECTION
-      allsums(0) = psum_dp(a)
-   !$OMP SECTION
-      allsums(8) = ksum(a)
-   !$OMP SECTION
-      allsums(4) = psum(a)
-   !$OMP SECTION
-      allsums(9) = ksumc(a,10)
-   !$OMP SECTION
-      allsums(5) = psum(a,10)
-   !$OMP SECTION
-      allsums(10) = ksumc(a,100)
-   !$OMP SECTION
-      allsums(6) = psum(a,100)
-   !$OMP SECTION
-      allsums(11) = ksumc(a,1000)
-   !$OMP SECTION
-      allsums(7) = psum(a,1000)
-   !$OMP SECTION
-      allsums(1) = sum(a)
-   !$OMP SECTION
-      allsums(2) = sum0(a)
-   !$OMP SECTION
-      allsums(3) = sum1(a)
-   !$OMP END PARALLEL SECTIONS
-   allerrs = (allsums(:)-allsums(0))/spacing(ref)
-   write(lu,*) metatest,n,allerrs(1:)
+   
+   METATESTS:do metatest = 1, 2
+
+      if (metatest == 1) then
+         a = a - 0.5    ! all values between -0.5 and 0.5
+         ref = sqrt(n/12.0)
+      else if (metatest == 2) then
+         a = a + 1.5    ! all values between 1.0 and 2.0
+         ref = 1.5*n
+      end if
+      !$OMP PARALLEL SECTIONS IF(n > 100000)
+      !$OMP SECTION
+         allsums(0) = sum_ep(a)
+      !$OMP SECTION
+         allsums(8) = ksum(a)
+      !$OMP SECTION
+         allsums(4) = psum(a)
+      !$OMP SECTION
+         allsums(9) = ksumc(a,10)
+      !$OMP SECTION
+         allsums(5) = psum(a,10)
+      !$OMP SECTION
+         allsums(10) = ksumc(a,100)
+      !$OMP SECTION
+         allsums(6) = psum(a,100)
+      !$OMP SECTION
+         allsums(11) = ksumc(a,1000)
+      !$OMP SECTION
+         allsums(7) = psum(a,1000)
+      !$OMP SECTION
+         allsums(1) = sum(a)
+      !$OMP SECTION
+         allsums(2) = sum_sp(a)
+      !$OMP SECTION
+         allsums(3) = sum_dp(a)
+      !$OMP END PARALLEL SECTIONS
+      allerrs(:,k,metatest) = (allsums(1:)-allsums(0))/spacing(ref)
+      
+   end do METATESTS
+      
    deallocate(a)
+   
 end do
 
-!---------------
-end do METATESTS
-!---------------
-
+filename = "../test/sums_bench_files/bench" // trim(suffix) // "_2.txt"
+open(newunit=lu,file=filename)
+do metatest = 1, 2
+   do k = 0, P2MAX*P2INC
+      n = nint(2**(k/P2INC) * 2d0**(mod(k,P2INC)/real(P2INC,kind=dp)))
+      write(lu,*) metatest,n,allerrs(:,k,metatest)
+   end do
+end do
 close(lu)
 
 END BLOCK ACCURRACIES
