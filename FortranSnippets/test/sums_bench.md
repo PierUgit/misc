@@ -71,8 +71,8 @@ Benchmarks
 ----------
 
 The values to sum are random numbers, with two different distributions:
-- **+/- distribution** : uniform distribution in the $[-0.499 ; 0.501[$ interval, . The expectation of the sum is $0.01*n$, and the condition number is asymptotically equal to $25$.
-- **+++ distribution** : uniform distribution in the $[1.0 ; 2.0[$ interval. The expectation of the sum is $1.5*n$, and the condition number is $1$.
+- **+/- distribution** : uniform distribution in the $[-0.5 ; 0.5[$ interval. The expectation of the sum is $0$ and consequently the condition number can raise to $+\Inf$. Since the relative error $Err2$ can be unstable in these conditions, we use the spacing at the expected standard deviation of the summation, which is $\sqrt(n/12)$
+- **+++ distribution** : uniform distribution in the $[1.0 ; 2.0[$ interval. The expectation of the sum is $1.5*n$, and the condition number is always $1$.
 
 The [code](../src/sums_bench.F90) is compiled either with:
 - `gfortran -O3 sums_bench.F90`
@@ -97,39 +97,39 @@ Observations:
 Accuracy benchmark
 ------------------
 
-Unless otherwise specified, we are looking at the benchmarks with the default compilation only (no fast-math). We are summing random numbers for values of $n$ from $2$ to $2^{30}$. The distribution of the errors being following a normal distribution, the graphs can be a bit obscure (black points below), so what we will plot in the rest of the document is a moving root mean square (RMS) value, that represents a local estimation of the average error:
+Unless otherwise specified, we are looking at the benchmarks with the default compilation only (no fast-math). We are summing random numbers for values of $n$ from $2$ to $2^{30}$. The distribution of the errors being following a normal distribution, the graphs can be a bit obscure (black points below), so what we will plot in the rest of the document is a moving root mean square (RMS) value:
 
 ![figure 1.0](sums_bench_files/fig10.png "figure 1.0")
 
 All graphs have a logarithmic horizontal axis. In this representation, a $f(n)=\sqrt{n}$ law looks like an exponential, and $f(n)=\sqrt{log_2(n)}$ looks like a $\sqrt{()}$ curve.
 
-An important point to determine the error is the reference result, supposed to be the "true summation". It could have been the **sum_qp** result, as the theoretical behavior ensures an extremely low error for the range of $n$ we use, but **sum_qp** proved to be too slow for repeated tests. Instead we use a full double precision version of the pairwise summation for the reference result. 
+An important point to determine the error is the reference result, supposed to be the "true summation". It could have been the **sum_qp** result, as the theoretical behavior ensures an extremely low error for the range of $n$ we use, but **sum_qp** proved to be too slow for repeated tests. Instead we use a straight summation with an extended precision accumulator (80 bits floating point with 18 significant digits). 
 
 # "+/-" distribution
 
-TFirst we compare the genuine versions of the methods:
+First we compare the genuine versions of the methods:
 
 ![figure 1.1](sums_bench_files/fig11.png "figure 1.1")
 
 Observations:
-- **sum_dp** has constantly an error that is equal to zero
+- **sum_dp** and **ksum** have constantly an error that is equal to zero
 - **sumi** and **sum_sp** behave exactly the same, with superimposed curves that grow exponentially. This tends to show that the intrinsic sum is implemented as a straightforward loop with a single precision accumulator
-- both **psum** and **ksum** tend to have a constant error, after a booth in the small $n$ values. We don't observe the expected $\sqrt{}$ shape for **psum**, and **ksum** has constantly a lower error.
+- **psum** has a behavior that looks like the expected the expected $\sqrt{()}$ shape.
 
 Looking now at the variants of **psum** specifically:
 
 ![figure 1.2](sums_bench_files/fig12.png "figure 1.2")
 
 Observations:
-- the errors first grow up to the number of elements that are classical summed, then tend to get back to a more or less constant error
-- again, we don't observe the expected $\sqrt{}$ behavior.
+- **psum_10** as almost the same accuracy as **psum** (but is 2x faster, as seen above)
+- For **psum_100** and **psum__1000** the errors first grow up to the number of elements that are classically summed, then tend to be moer or less constant rather than to fallow a $\sqrt{()}$ behavior. This can easily be explained from the theoretical behavior of $Err2$, where the $k$ value -which is constant- tend to rule the error for the range of $n$ that are tested here
 - even **psum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost on average).
 
 Looking now at the variants of **ksum** specifically:
 
 ![figure 1.3](sums_bench_files/fig13.png "figure 1.3")
 
-- the error first grow fast up to the number of elements in the chunk, then it tends to keep a "constant" trend
+- the error first grow fast up to the number of elements in the chunk, then it tends to follow a constant trend
 - even **ksum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost). The main interest is that the average error is supposed to be kept constant whatever $n$ above the chunk size.
 
 
@@ -142,14 +142,14 @@ First we compare the genuine versions of the methods:
 Observations:
 - **ksum** and **sum_dp** have constantly an error that is equal to zero
 - **sumi** and **sum_sp** behave exactly the same, with superimposed curves that grow exponentially. This definitely shows that the intrinsic sum is implemented as a straightforward loop wih a single precision accumulator
-- **psum** has an overall constant error, while a $\sqrt{}$ shape is expected.
+- **psum** has an overall constant error, while a $\sqrt{()}$ shape is expected.
 
 Looking now at the variants of **psum** specifically:
 
 ![figure 1.5](sums_bench_files/fig15.png "figure 1.5")
 
 Observations:
-- the error first grow fast up to the number of elements that are classical summed, then it gets back to a small constant error, instead of the $\sqrt{}$ behavior.
+- the error first grow fast up to the number of elements that are classical summed, then it gets back to a small constant error, instead of the expected $\sqrt{()}$ behavior.
 - even **psum_1000** has an error less than 4 ($Err2=10$ means that a full significant digit is lost).
 
 Looking now at the variants of **ksum** specifically:
