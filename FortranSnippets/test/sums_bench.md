@@ -154,6 +154,8 @@ Observations:
 - the error first grow fast up to the number of elements that are classical summed, then it gets back to a small constant error, instead of the expected $\sqrt{()}$ behavior.
 - even **psum_1000** has an error less than 4 ($Err2=10$ means that a full significant digit is lost).
 
+These results on **psum** look extremely surprising at first, but after double checking and some simulations of how the errors accumulate during the summations, il looks like they are completely correct. **It shows that in some cases, the theoretical average error is quite pessimistic**. And it makes the pairwise summation a very attractive algorithm in pratice.
+
 Looking now at the variants of **ksum** specifically:
 
 ![figure 1.6](sums_bench_files/fig16.png "figure 1.6")
@@ -161,4 +163,10 @@ Looking now at the variants of **ksum** specifically:
 - the error first grow fast up to the number of elements in the chunk, then it tends to keep a constant trend
 - even **ksum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost). The main interest is that the average error is supposed to be kept constant whatever $n$ above the chunk size.
 
+Note that there is no "good suprise" with **ksum**, in contrast to **psum**
+
+Accurracy benchmark with fast-math
+----------------------------------
+
+![figure 1.1bis](sums_bench_files/fig11_fast.png "figure 1.1bis")
 
