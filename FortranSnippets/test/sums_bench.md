@@ -33,28 +33,28 @@ Note the denominator that can lead to catastrophic errors when $\epsilon f(n)$ i
 
 **In the rest of the document we assume that we are in the case where the denominator can be neglected**: $1-\epsilon f(n)<<1$
 
-The maximum absolute error is then $Err0_{max}(n)=\epsilon f(n) \sum_i{|x_i|}$. This worst case happens when all the rounding errors have the same sign. In practice they are most of time of random sign, and the error behaves as a random walk. The error has then a normal distribution, and we can take the standard deviation as the average error:
+The maximum absolute error is then $err0_{max}(n)=\epsilon f(n) \sum_i{|x_i|}$. This worst case happens when all the rounding errors have the same sign. In practice they are most of time of random sign, and the error behaves as a random walk. The error has then a normal distribution, and we can take the standard deviation as the average error:
 
-$Err0(n)=?=\epsilon \sqrt{f(n)/12} \sum_i{|x_i|}$
+$err0(n)=?\epsilon \sqrt{f(n)/12} \sum_i{|x_i|}$
 
 However, this is apparentely not that simple, as \sum_i{|x_i|} term is also a worst case one. The exact accurracy analysis looks complicated, and instead we use in practice the asymptotic behavior:
 
-$Err0(n)=\epsilon O(\sqrt{f(n)}) \sum_i{|x_i|}$
+$err0(n)=\epsilon O(\sqrt{f(n)}) \sum_i{|x_i|}$
 
 But what is often considered instead of the absolute error is the relative error:
 
-$Err1(n)=\frac{Err0(n)}{S(n)}=\epsilon O(\sqrt{f(n)}) . c$ 
+$err1(n)=\frac{err0(n)}{S(n)}=\epsilon O(\sqrt{f(n)}) . c$ 
 
 Where $c=\frac{\sum_i{|x_i|}}{\sum_i{x_i}}$ is the [condition number of the summation](https://en.wikipedia.org/wiki/Pairwise_summation#Accuracy), which is independent from the summation method.
 
 And finally it can also be meaningful to express the error in terms of spacing between two floating points at the value of the sum. The spacing can be roughtly approximated by $\delta(x) \approx \epsilon.x$.
 
-$Err2(n)=e.\frac{Err0(n)}{\delta(S(n))}=e.O(\sqrt{f(n)}).c$
+$err2(n)=e.\frac{err0(n)}{\delta(S(n))}=e.O(\sqrt{f(n)}).c$
 
 $e=1$, except for straight summation with higher precision summations where $e=\frac{\epsilon}{\epsilon_{sp}}$
 
 When taking into account all the flavors, we get the following table:
-|                  | $e$         | $f(n)$       | $Err2(n)$ |
+|                  | $e$         | $f(n)$       | $err2(n)$ |
 |------------------|-------------|--------------|-----------|
 | sumi             |?            | ?            | ?         |
 | sum_sp           |$1$          | $n$          | $O(\sqrt{n}) . c$ |
@@ -65,18 +65,20 @@ When taking into account all the flavors, we get the following table:
 | ksum             |$1$          | $1$          | $O(1) . c$ |
 | ksum_k           |$1$          | $k$          | $O(\sqrt{k}) . c$ |
 
-In practice, the average error of **sum_dp** is excellent: $Err2(n)$ is larger than $1.0$ only for $n > 10^{18}$. No need to say that with current machine capacities such a large number of elements is totally unlikely. So where is the need of other algorithms? An answer is for instance "in case one wants to sum double precison values while keeping the double precision in the sum, and no higher precision accumulator is available". On x86 machines there exists the native "extended precision" format (80 bits), but such a format does not exist on all architectures. The compilers often propose the quadruple precision, but as of today it is most of time software emulated, hence quite slow as we will see below. 
+In practice, the average error of **sum_dp** is excellent: $err2(n)$ is larger than $1.0$ only for $n > 10^{18}$. No need to say that with current machine capacities such a large number of elements is totally unlikely. So where is the need of other algorithms? An answer is for instance "in case one wants to sum double precison values while keeping the double precision in the sum, and no higher precision accumulator is available". On x86 machines there exists the native "extended precision" format (80 bits), but such a format does not exist on all architectures. The compilers often propose the quadruple precision, but as of today it is most of time software emulated, hence quite slow as we will see below. 
 
 Benchmarks
 ----------
 
 The values to sum are random numbers, with two different distributions:
-- **+/- distribution** : uniform distribution in the $[-0.5 ; 0.5[$ interval. The expectation of the sum is $0$ and consequently the condition number can raise to $+\Inf$. Since the relative error $Err2$ can be unstable in these conditions, we use the spacing at the expected standard deviation of the summation, which is $\sqrt(n/12)$
-- **+++ distribution** : uniform distribution in the $[1.0 ; 2.0[$ interval. The expectation of the sum is $1.5*n$, and the condition number is always $1$.
+- **+/- distribution** : uniform distribution in the $\[-0.5 ; 0.5\[$ interval. The expectation of the sum is $0$ and consequently the condition number can raise to $+\infty$. Since the relative error $err2$ can be unstable in these conditions, we use the spacing at the expected standard deviation of the summation, which is $\sqrt{n/12}$ (*).
+- **+++ distribution** : uniform distribution in the $\[1.0 ; 2.0\[$ interval. The expectation of the sum is $1.5\*n$, and the condition number is always $1$.
 
-The [code](../src/sums_bench.F90) is compiled either with:
-- `gfortran -O3 sums_bench.F90`
-- `gfortran -O3 -ffast-math -DFAST sums_bench.F90`
+The code ([here](../src/sums.f90) and [here](../src/sums_bench.F90)) is compiled either with:
+- `gfortran -O3 sums.f90 sums_bench.F90`
+- `gfortran -O3 -ffast-math -DFAST sums.f90 sums_bench.F90`
+
+(\*) this actually raises the question about the reference value used to determine the relative error for a sum that has an expectation equal to $0$. Say we are correlating two normalized time series $\sum_i{x_iy_i}$, where $\sum_i{x_i^2}=1$ and $\sum_i{y_i^2}=1$ . In the case $y=x$ the correlation is perfect and the sum is $1.0$. If $y$ is mostly uncorrelated to $x$, the sum will have a tiny value, say $1.e{-4}$, but what we usually want here is the precision of this result with respect to $1.0$, not with respect to itself. In other terms, we don't mind having a $10^-{11}$ precision at $10^{-4}$, the same $10^{-7} as around $1.0$, which is the maximum possible value of this sum, is OK. Note that the $\sqrt{n/12}$ retained in these tests is a compromise between the maximum possible value $0.5\*n$ and the actual sums that can be as tiny as possible.  
 
 Runtime benchmark
 -----------------
@@ -152,6 +154,8 @@ Observations:
 - the error first grow fast up to the number of elements that are classical summed, then it gets back to a small constant error, instead of the expected $\sqrt{()}$ behavior.
 - even **psum_1000** has an error less than 4 ($Err2=10$ means that a full significant digit is lost).
 
+These results on **psum** look extremely surprising at first, but after double checking and some simulations of how the errors accumulate during the summations, il looks like they are completely correct. **It shows that in some cases, the theoretical average error is quite pessimistic**. And it makes the pairwise summation a very attractive algorithm in pratice.
+
 Looking now at the variants of **ksum** specifically:
 
 ![figure 1.6](sums_bench_files/fig16.png "figure 1.6")
@@ -159,4 +163,16 @@ Looking now at the variants of **ksum** specifically:
 - the error first grow fast up to the number of elements in the chunk, then it tends to keep a constant trend
 - even **ksum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost). The main interest is that the average error is supposed to be kept constant whatever $n$ above the chunk size.
 
+Note that there is no "good suprise" with **ksum**, in contrast to **psum**
 
+Accurracy benchmark with fast-math
+----------------------------------
+
+The `-ffast-math` option of `gfortran` authorizes the optimizer to rearrange the order of the operation, as long as this is mathematically equivalent. However "mathematically equivalent" does not mean equivalent in terms of floating point arithmetic. What can be the impact on our benchmark?
+
+First a general result for the "+/-" distribution:
+
+![figure 1.1bis](sums_bench_files/fig11_fast.png "figure 1.1bis")
+
+Observations:
+- The curves look overall similar to the non-fast versions, except for **ksum** that has now catastrophic errors, even poorer than the single precision straight summation. This is a known effect of fast-math style option, which defeat the compensation term in Kahan algorithm.
