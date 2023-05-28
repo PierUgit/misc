@@ -168,5 +168,11 @@ Note that there is no "good suprise" with **ksum**, in contrast to **psum**
 Accurracy benchmark with fast-math
 ----------------------------------
 
+The `-ffast-math` option of `gfortran` authorizes the optimizer to rearrange the order of the operation, as long as this is mathematically equivalent. However "mathematically equivalent" does not mean equivalent in terms of floating point arithmetic. What can be the impact on our benchmark?
+
+First a general result for the "+/-" distribution:
+
 ![figure 1.1bis](sums_bench_files/fig11_fast.png "figure 1.1bis")
 
+Observations:
+- The curves look overall similar to the non-fast versions, except for **ksum** that has now catastrophic errors, even poorer than the single precision straight summation. This is a known effect of fast-math style option, which defeat the compensation term in Kahan algorithm.
