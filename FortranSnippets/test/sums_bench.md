@@ -179,7 +179,9 @@ Observations:
 
 Let's compare more precisely with or without fast-math on the same graph:
 
-![figure 3.1](sums_bench_files/fig31_fast.png "figure 3.1")
+![figure 3.1](sums_bench_files/fig31.png "figure 3.1")
+
+Observations; 
 
 
 
