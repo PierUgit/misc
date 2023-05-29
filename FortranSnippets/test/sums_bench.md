@@ -1,5 +1,3 @@
-# !!! work in progress !!!
-
 Benchmark of 1D floating point summation methods
 ================================================
 
@@ -183,6 +181,11 @@ Let's compare more precisely with or without fast-math on the same graph:
 
 Observations
 - so, not only the fast-math option dramatically speeds-up the sums, but it also improves the accuracy. The one of the straight sum, in the first place: because the summation loop is vectorized, some partial sums are computed then reducted. The benefit is a similar to the one obtained with the pairwise summation algorithm (not quantitavely, of course). In turns, the chunked pairwise summation takes advantage of this better accuracy.
+
+.
+
+------------------------------------
+.
 
 ![Wrath of Kahan](../../misc/wrathofkahan.png "Wrath of Kahan")
 
