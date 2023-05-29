@@ -176,3 +176,10 @@ First a general result for the "+/-" distribution:
 
 Observations:
 - The curves look overall similar to the non-fast versions, except for **ksum** that has now catastrophic errors, even poorer than the single precision straight summation. This is a known effect of fast-math style option, which defeat the compensation term in Kahan algorithm.
+
+Let's compare more precisely with or without fast-math on the same graph:
+
+![figure 3.1](sums_bench_files/fig31_fast.png "figure 3.1")
+
+
+
