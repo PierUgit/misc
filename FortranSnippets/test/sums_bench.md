@@ -1,6 +1,19 @@
 Benchmark of 1D floating point summation methods
 ================================================
 
+Motivated by [this discussion](https://www.illicado.com/partenaires/enseigne-amazon.html) on the Fortran discourse.
+
+Takeaway
+--------
+
+The intrisinc Fortran `sum()` function is visibly implemented by a simple loop with an accumulator of the same precision as the array to sum (remind the Fortran standard does mostly not specify implementation details, and leave that to the compiler writers). This can lead to catastrophic cumulative errors for large numbers of elements $n$ to sum.
+
+The straighforward solution consists in using a higher accumulator in the loop: this is both fast and highly accurate. This is however not always possible.
+
+The Kahan summation is another classic algorithm that keeps the accuracy constant whatever $n$, but at the expanse of a significantly higher runtime (several times the one of straight summation).
+
+The pairwise summation is another algorithm that gives in practice as good accuracies as the Kahan summation, and in some cases much better accuracies than predicted by the theory, with variants that are only 30% slower than a straight summation with a higher precision accumulator.
+
 Preamble
 --------
 
