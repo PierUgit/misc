@@ -6,18 +6,18 @@ Motivated by [this discussion](https://www.illicado.com/partenaires/enseigne-ama
 Takeaway
 --------
 
-The intrisinc Fortran `sum()` function is visibly implemented by a simple loop with an accumulator of the same precision as the array to sum (remind the Fortran standard does mostly not specify implementation details, and leave that to the compiler writers). This can lead to catastrophic cumulative errors for large numbers of elements $n$ to sum.
+The intrisinc Fortran `sum()` function is visibly implemented by a simple loop with an accumulator of the same precision as the array to sum (remind the Fortran standard does mostly not specify implementation details, and leaves them to the compiler writers). This can lead to catastrophic cumulative errors for large numbers of elements $n$ to sum.
 
-The straighforward solution consists in using a higher accumulator in the loop: this is both fast and highly accurate. This is however not always possible.
+The straighforward solution consists in using a higher precision accumulator in the loop: this is both fast and highly accurate. This is however not always possible.
 
-The Kahan summation is another classic algorithm that keeps the accuracy constant whatever $n$, but at the expanse of a significantly higher runtime (several times the one of straight summation).
+The Kahan summation is a classic algorithm that keeps the accuracy constant whatever $n$, but at the expanse of a significantly higher runtime (several times the one of straight summation).
 
-The pairwise summation is another algorithm that gives in practice as good accuracies as the Kahan summation, and in some cases much better accuracies than predicted by the theory, with variants that are only 30% slower than a straight summation with a higher precision accumulator.
+The pairwise summation is another algorithm that gives in practice as good accuracies as the Kahan summation, and in some cases a much better accuracy than predicted by the theory, with variants that are only 30% slower than a straight summation with a higher precision accumulator.
 
 Preamble
 --------
 
-We benchmark the runtimes and accuracies of several methods of the summation of N single precision floating point values $S(n)=\sum_{i=1..N}{x_i}$:
+We benchmark the runtimes and accuracies of several methods for the summation of $n$ single precision floating point values $S(n)=\sum_{i=1..N}{x_i}$:
 - **sumi**: intrinsic Fortran `sum()` function (using the gfortran compiler)
 - **sum_**: straight summation: simple do loop with an accumulator. The accumulator can be:
   - **sum_sp**: single precision accumulator
@@ -33,10 +33,10 @@ The tests are performed on a x86 machine (an old Core i5 2500K from 2011), with 
 Accuracy analysis
 -----------------
 
-In the litterature, we find that the maximum absolute error of the sum of $n$ elements, $S(n)=\sum_i{x_i}$ is bounded by $Err0_max(n)=\frac{\epsilon f(n)}{1-\epsilon f(n)}\sum_i{|x_i|}$, where $\epsilon$ is the machine precision (about $10^{-7}$ for IEEE-754 single precision), and $f(n)$ a function that depends on the summation method:
+In the litterature, we find that the maximum absolute error of the sum of $n$ elements, $S(n)=\sum_i{x_i}$ is bounded by $err0_max(n)=\frac{\epsilon f(n)}{1-\epsilon f(n)}\sum_i{|x_i|}$, where $\epsilon$ is the machine precision (about $10^{-7}$ for single precision), and $f(n)$ a function that depends on the summation method:
 |                  | $f(n)$            | Notes |
 |------------------|-------------------|-------|
-| straight         | $n$               | $\epsilon$ is the one of the accumulator! |
+| straight         | $n$               | $\epsilon$ is the one of the accumulator |
 | pairwise         | $\log_2{n}$       |       |
 | Kahan            | $1$               |       |
 
@@ -44,7 +44,7 @@ Note the denominator that can lead to catastrophic errors when $\epsilon f(n)$ i
 
 **In the rest of the document we assume that we are in the case where the denominator can be "neglected"**: $1-\epsilon f(n)\approx 1$
 
-The maximum absolute error is then $err0_{max}(n)=\epsilon f(n) \sum_i{|x_i|}$. This worst case happens when all the rounding errors have the same sign. In practice they are most of time of random sign, and the error behaves as a random walk. The error has then a normal distribution, and we can take the standard deviation as the average error:
+The maximum absolute error is then $err0_{max}(n)=\epsilon f(n) \sum_i{|x_i|}$. This worst case happens when all the rounding errors have the same sign. In practice they have most of time a random sign, and the cumultaive error behaves like a random walk. This cumulative error has then a normal distribution, and we might take the standard deviation as the average error:
 
 $err0(n)=?\epsilon \sqrt{f(n)/12} \sum_i{|x_i|}$
 
@@ -58,11 +58,11 @@ $err1(n)=\frac{err0(n)}{S(n)}=\epsilon O(\sqrt{f(n)}) . c$
 
 Where $c=\frac{\sum_i{|x_i|}}{\sum_i{x_i}}$ is the [condition number of the summation](https://en.wikipedia.org/wiki/Pairwise_summation#Accuracy), which is independent from the summation method.
 
-And finally it can also be meaningful to express the error in terms of spacing between two floating points at the value of the sum. The spacing can be roughtly approximated by $\delta(x) \approx \epsilon.x$.
+And finally it can also be meaningful to express the error in terms of spacing between two floating point numbers at the value of the sum. The spacing can be roughtly approximated by $\delta(x) \approx \epsilon.x$.
 
 $err2(n)=e.\frac{err0(n)}{\delta(S(n))}=e.O(\sqrt{f(n)}).c$
 
-$e=1$, except for straight summation with higher precision summations where $e=\frac{\epsilon}{\epsilon_{sp}}$
+$e=1$, except for straight summation with higher precision accumulators, where $e=\frac{\epsilon}{\epsilon_{sp}}$
 
 When taking into account all the flavors, we get the following table:
 |                  | $e$         | $f(n)$       | $err2(n)$ |
@@ -76,7 +76,7 @@ When taking into account all the flavors, we get the following table:
 | ksum             |$1$          | $1$          | $O(1) . c$ |
 | ksum_k           |$1$          | $k$          | $O(\sqrt{k}) . c$ |
 
-In practice, the average error of **sum_dp** is excellent: $err2(n)$ is larger than $1.0$ only for $n > 10^{18}$. No need to say that with current machine capacities such a large number of elements is totally unlikely. So where is the need of other algorithms? An answer is for instance "in case one wants to sum double precison values while keeping the double precision in the sum, and no higher precision accumulator is available". On x86 machines there exists the native "extended precision" format (80 bits), but such a format does not exist on all architectures. The compilers often propose the quadruple precision, but as of today it is most of time software emulated, hence quite slow as we will see below. 
+In practice, the average error of **sum_dp** is excellent: $err2(n)$ is larger than $1.0$ only for $n > 10^{18}$. No need to say that with current machine capacities such a large number of elements is totally unlikely. So where is the need of other algorithms? An answer is for instance "in case one wants to sum double precison values, and no higher precision accumulator is available". On x86 machines there exists the native "extended precision" format (80 bits), but such a format does not exist on all architectures. The compilers often propose the quadruple precision, but as of today it is most of time software emulated, hence quite slow as we will see below. 
 
 Benchmarks
 ----------
@@ -89,7 +89,7 @@ The code ([here](../src/sums.f90) and [here](../src/sums_bench.F90)) is compiled
 - `gfortran -O3 sums.f90 sums_bench.F90`
 - `gfortran -O3 -ffast-math -DFAST sums.f90 sums_bench.F90`
 
-(\*) this actually raises the question about the reference value used to determine the relative error for a sum that has an expectation equal to $0$. Say we are correlating two normalized time series $\sum_i{x_iy_i}$, where $\sum_i{x_i^2}=1$ and $\sum_i{y_i^2}=1$ . In the case $y=x$ the correlation is perfect and the sum is $1.0$. If $y$ is mostly uncorrelated to $x$, the sum will have a tiny value, say $1.e{-4}$, but what we usually want here is the precision of this result with respect to $1.0$, not with respect to itself. In other terms, we don't mind having a $10^-{11}$ precision at $10^{-4}$, the same $10^{-7} as around $1.0$, which is the maximum possible value of this sum, is OK. Note that the $\sqrt{n/12}$ retained in these tests is a compromise between the maximum possible value $0.5\*n$ and the actual sums that can be as tiny as possible.  
+(\*) this actually raises the question about the reference value used to determine the relative error for a sum that has an expectation equal to $0$. Say we are correlating two normalized time series $\sum_i{x_iy_i}$, where $\sum_i{x_i^2}=1$ and $\sum_i{y_i^2}=1$ . In the case $y=x$ the correlation is perfect and the sum is $1.0$. If $y$ is mostly uncorrelated to $x$, the sum will have a tiny value, say $1.e{-4}$, but what we usually want here is the precision of this result with respect to $1.0$, not with respect to itself. In other words, we don't mind having a $10^{-11}$ precision at $10^{-4}$: $10^{-7}, as around $1.0$ that is the maximum possible value of this sum, is OK. Note that the $\sqrt{n/12}$ retained in these tests is a compromise between the maximum possible value $0.5\*n$ and the actual sums that can be as tiny as possible.  
 
 Runtime benchmark
 -----------------
@@ -114,7 +114,7 @@ Unless otherwise specified, we are looking at the benchmarks with the default co
 
 ![figure 1.0](sums_bench_files/fig10.png "figure 1.0")
 
-All graphs have a logarithmic horizontal axis. In this representation, a $f(n)=\sqrt{n}$ law looks like an exponential, and $f(n)=\sqrt{log_2(n)}$ looks like a $\sqrt{()}$ curve.
+All graphs have a logarithmic horizontal axis. In this representation, $f(n)=\sqrt{n}$ looks like an exponential, and $f(n)=\sqrt{log_2(n)}$ looks like a $\sqrt{()}$ curve.
 
 An important point to determine the error is the reference result, supposed to be the "true summation". It could have been the **sum_qp** result, as the theoretical behavior ensures an extremely low error for the range of $n$ we use, but **sum_qp** proved to be too slow for repeated tests. Instead we use a straight summation with an extended precision accumulator (80 bits floating point with 18 significant digits). 
 
@@ -136,14 +136,14 @@ Looking now at the variants of **psum** specifically:
 Observations:
 - **psum_10** as almost the same accuracy as **psum** (but is 2x faster, as seen above)
 - For **psum_100** and **psum__1000** the errors first grow up to the number of elements that are classically summed, then tend to be moer or less constant rather than to fallow a $\sqrt{()}$ behavior. This can easily be explained from the theoretical behavior of $Err2$, where the $k$ value -which is constant- tend to rule the error for the range of $n$ that are tested here
-- even **psum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost on average).
+- even **psum_1000** has an error less than 10 ($err2=10$ means that a full significant digit is lost on average).
 
 Looking now at the variants of **ksum** specifically:
 
 ![figure 1.3](sums_bench_files/fig13.png "figure 1.3")
 
 - the error first grow fast up to the number of elements in the chunk, then it tends to follow a constant trend
-- even **ksum_1000** has an error less than 10 ($Err2=10$ means that a full significant digit is lost). The main interest is that the average error is supposed to be kept constant whatever $n$ above the chunk size.
+- even **ksum_1000** has an error less than 10 ($err2=10$ means that a full significant digit is lost). The main interest is that the average error is supposed to be kept constant whatever $n$ above the chunk size.
 
 
 # "+++" distribution
@@ -163,7 +163,7 @@ Looking now at the variants of **psum** specifically:
 
 Observations:
 - the error first grow fast up to the number of elements that are classical summed, then it gets back to a small constant error, instead of the expected $\sqrt{()}$ behavior.
-- even **psum_1000** has an error less than 4 ($Err2=10$ means that a full significant digit is lost).
+- even **psum_1000** has an error less than 4 ($err2=10$ means that a full significant digit is lost).
 
 These results on **psum** look extremely surprising at first, but after double checking and some simulations of how the errors accumulate during the summations, il looks like they are completely correct. **It shows that in some cases, the theoretical average error is quite pessimistic**. And it makes the pairwise summation a very attractive algorithm in pratice.
 
@@ -201,9 +201,3 @@ Observations
 .
 
 ![Wrath of Kahan](../../misc/wrathofkahan.png "Wrath of Kahan")
-
-
-
-
-
-
