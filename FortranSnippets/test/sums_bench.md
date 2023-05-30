@@ -42,7 +42,7 @@ In the litterature, we find that the maximum absolute error of the sum of $n$ el
 
 Note the denominator that can lead to catastrophic errors when $\epsilon f(n)$ is no longer negligible wrt $1$ (say above $0.1$). For the straight summation in single precision it means as soon as $n$ is larger than $10^6$, and in double precision larger than $10^{14}$. The classical example is the straight summation of $x_i=1.0$ in single precision: the actual sum is equal to $n$ for $n<=2^{24}=16777216$ (24 being the number of bits in the mantissa in single precision), and to $16777216$ whatever $n>2^{24}$, since $2^{24}+1.0=2^{24}$.
 
-**In the rest of the document we assume that we are in the case where the denominator can be neglected**: $1-\epsilon f(n)<<1$
+**In the rest of the document we assume that we are in the case where the denominator is close to 1**: $1-\epsilon f(n)\approx 1$
 
 The maximum absolute error is then $err0_{max}(n)=\epsilon f(n) \sum_i{|x_i|}$. This worst case happens when all the rounding errors have the same sign. In practice they are most of time of random sign, and the error behaves as a random walk. The error has then a normal distribution, and we can take the standard deviation as the average error:
 
