@@ -82,7 +82,7 @@ a higher complexity. And in practice it is even better:
   further maybe only N/100, etc... The worst case scenario is still O(N*log(M)), 
   but the best case is rather be O(N)
   
-See the [whole code](../src/sortselect.f90), and the [benchmark code](../src/sortselect_test.f90)
+See the [whole code](../src/sortselect.f90), and the [benchmark code](../test/sortselect_test.f90)
 
 Bisection Select benchmark for "small" values of N
 --------------------------------------------------
