@@ -142,6 +142,7 @@ contains
 
 
    ! simple do loop with single precision accumulator
+   ! and a simulation of how the errors accumulate
    real(sp) function sum_err_sp(a,err) result(s)
    real(sp), intent(in) :: a(:)
    real(dp), intent(out) :: err
@@ -157,6 +158,7 @@ contains
    end function
 
    ! pairwise summation, possibly chunked
+   ! and a simulation of how the errors accumulate
    recursive real(sp) function psum_err(a,err,chunk) result(s)
    real(sp), intent(in) :: a(:)
    real(dp), intent(out) :: err
