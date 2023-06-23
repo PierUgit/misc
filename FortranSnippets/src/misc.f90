@@ -47,7 +47,7 @@ if (n == m) then
 end if
 
 call b%allocate(n*m)
-call b%setall(.false.)
+call b%set(.false.)
 
 do cycle_start = 1, n*m
    if (b%get(cycle_start)) cycle
