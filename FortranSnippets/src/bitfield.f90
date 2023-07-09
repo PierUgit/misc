@@ -13,29 +13,64 @@
 ! Example: 
 ! 
 ! type(bitfield_t) :: b
-! call b%allocate(1000)    ! allocates 1000 1-bit logicals (lower bound is 1)
-! call b%allocate(0,999)   ! allocates 1000 1-bit logicals with a lower bound = 0
-! call b%set(.false.)      ! sets all the bits to .false.
-! call b%set(100,.true.)   ! sets the bit index 100 to .true.
-! call b%set(10,19,.true)  ! sets the bits indexes 10 to 19 to .true.
-!      b%get(200)          ! gets the value of bit index 200
-! call b%gets(200,v)       ! gets the value of bit index 200 and put in v
-! call b%gets(10,19,v)     ! gets the value of bit indexes 10 to 19 and put them in v(:)
-! call b%gets(v)           ! gets the value of all the bits and put them in v(:)
-!      b%getsize()         ! size of the bitfield
-!      b%getlb()           ! lower bound of the bitfield
-!      b%getub()           ! upper bound of the bitfield
-! call b%setlb(-10)        ! forces the lower bound to be -10
-! call b%setub(100)        ! forces the lower bound to be 100
-!      b%count()           ! returns the number of bits that are .true.
-!      b%count(50,99)      ! returns the number of bits that are .true. from index 50 to 99
-!      b%all()             ! .true. iif all bits are .true.
-!      b%all(10,15)        ! .true. iif the bits 10 to 15 are .true.
-!      b%any()             ! .true. iif at least one bit is .true.
-!      b%any(10,15)        ! .true. iif at least one of the bits 10 to 15 is .true.
-! call b%pull(10,115,c)    ! extracts the bits 10 to 115 to a new bitfield c
-! call b%pull(10,115,c,1)  ! ...idem + forcing the lower bound to be 1
-! call b%deallocate()      ! deallocates the bitfield
+!
+! call b%allocate(size)
+! call b%allocate(lb,ub)
+!     integer :: size, lb, ub
+!
+! call b%deallocate()
+!
+! n  = b%getsize()
+! lb = b%getlb()
+! ub = b%getub() 
+! call b%setlb(lb)
+! call b%setub(ub)
+!     integer :: n, lb, ub
+!
+! call b%set(bool)
+! call b%set(pos,bool) 
+! call b%set(frompos,topos,bool) 
+!     logical :: bool[(:)]
+!     integer :: pos, frompos, topos
+!     Note: b must always be allocated beforehand
+!     Note: setting from a logical array is highly inefficient
+!
+! call b%get(pos,bool)
+!     logical :: bool
+! call b%get(bool)
+! call b%get(frompos,topos,bool)
+!     logical :: bool(:)
+!     integer :: pos, frompos, topos
+!     bool(:) must be allocated beforehand
+!
+! bool = b%fget(pos)
+!     logical :: bool
+! bool = b%fget()
+! bool = b%fget(frompos,topos)
+!     logical :: bool(:)
+!     integer :: pos, frompos, topos
+!     bool(:) must be allocated beforehand
+!
+! call b%replace(c)
+!     type(bitfield_t) :: c
+!
+! call b%extract(frompos,topos,c)
+! c = b%fextract(frompos,topos)
+!     integer :: frompos, topos
+!     type(bitfield_t) :: c
+!     Note: in the subroutine form, c must not be allocated beforehand
+!
+! n = b%count() 
+! n = b%count(frompos,topos) 
+!     integer :: frompos, topos
+!
+! bool = b%all()            
+! bool = b%all(frompos,topos) 
+!     integer :: frompos, topos
+!
+! bool = b%any()           
+! bool = b%any(frompos,topos) 
+!     integer :: frompos, topos
 !***********************************************************************************************
 module bitfield
 !use iso_fortran_env
@@ -44,45 +79,79 @@ implicit none
 private
 
 integer, parameter :: l=bit_size(0)
+integer :: zeros, ones
+logical :: initialized = .false.
 
 type, public :: bitfield_t
-   integer, allocatable, private :: a(:)
-   integer, private :: n = -1
-   integer, private :: lb, ub
+   private
+   integer, allocatable :: a(:)
+   integer :: n = -1
+   integer :: lb, ub
    integer :: zeros, ones
 contains
-   procedure, private :: allocate1 => b_allocate1
-   procedure, private :: allocate2 => b_allocate2
-   generic :: allocate => allocate1, allocate2
-   procedure :: deallocate => b_deallocate
-   procedure :: getsize => b_getsize
-   procedure :: getlb => b_getlb
-   procedure :: getub => b_getub
-   procedure :: setlb => b_setlb
-   procedure :: setub => b_setub
-   procedure, private :: set1 => b_set1
-   procedure, private :: setall => b_setall
-   procedure, private :: setrange => b_setrange
-   generic   :: set => set1, setall, setrange
-   procedure :: get => b_fget
-   procedure, private :: get1 => b_get1
-   procedure, private :: getall => b_getall
-   procedure, private :: getrange => b_getrange
-   generic :: gets => get1, getall, getrange
-   procedure, private :: countall => b_countall
-   procedure, private :: countrange => b_countrange
-   generic :: count => countall, countrange
-   procedure, private :: allall => b_allall
-   procedure, private :: allrange => b_allrange
-   generic :: all => allall, allrange
-   procedure, private :: anyall => b_anyall
-   procedure, private :: anyrange => b_anyrange
-   generic :: any => anyall, anyrange
-   procedure :: pull => b_pull
-   procedure :: count1 => b_count1
+   private
+   procedure :: allocate1 => b_allocate1
+   procedure :: allocate2 => b_allocate2
+   generic, public :: allocate => allocate1, allocate2
+   procedure, public :: deallocate => b_deallocate
+   
+   procedure, public :: getsize => b_getsize
+   procedure, public :: getlb => b_getlb
+   procedure, public :: getub => b_getub
+   procedure, public :: setlb => b_setlb
+   procedure, public :: setub => b_setub
+   
+   procedure :: set0 => b_set0
+   procedure :: setall0 => b_setall0
+   procedure :: setrange0 => b_setrange0
+   procedure :: setall1 => b_setall1
+   procedure :: setrange1 => b_setrange1
+   generic, public:: set => set0, setall0, setall1, setrange0, setrange1
+   
+   !generic, public :: assignment(=) => setall1 
+   
+   procedure :: get1 => b_get1
+   procedure :: getall => b_getall
+   procedure :: getrange => b_getrange
+   generic, public :: get => get1, getall, getrange
+   
+   procedure :: fget1 => b_fget1
+   procedure :: fgetall => b_fgetall
+   procedure :: fgetrange => b_fgetrange
+   generic, public :: fget => fget1, fgetall, fgetrange
+   
+   procedure :: countall => b_countall
+   procedure :: countrange => b_countrange
+   generic, public :: count => countall, countrange
+   
+   procedure :: allall => b_allall
+   procedure :: allrange => b_allrange
+   generic, public  :: all => allall, allrange
+   procedure :: anyall => b_anyall
+   procedure :: anyrange => b_anyrange
+   generic, public :: any => anyall, anyrange
+   
+   procedure, public :: extract => b_extract
+   procedure, public :: fextract => b_fextract
+   procedure, public :: replace => b_replace
+   
+   procedure, private :: indeces => b_indeces
 end type
 
+!interface assignment(=)
+!   module procedure assign_b_to_l
+!end interface
+
 contains
+
+   subroutine init()
+   integer :: ii
+      zeros = 0
+      do ii = 0, l
+         zeros = ibclr(zeros,ii)
+      end do
+      ones = not(zeros)
+   end subroutine
 
    subroutine b_allocate1(this,n)
    class(bitfield_t), intent(inout) :: this
@@ -94,16 +163,12 @@ contains
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: lb, ub
    integer :: ii
+      if (.not.initialized) call init()
       if (allocated(this%a)) error stop "bitfield is already allocated"
       this%n = ub - lb + 1 
       this%lb = lb
       this%ub = ub
       allocate( this%a(0:(this%n-1)/l) )
-      this%zeros = 0
-      do ii = 0, l
-         this%zeros = ibclr(this%zeros,ii)
-      end do
-      this%ones = not(this%zeros)
    end subroutine 
 
    subroutine b_deallocate(this)
@@ -112,6 +177,8 @@ contains
       deallocate( this%a )
       this%n = -1
    end subroutine 
+   
+
 
    integer function b_getsize(this)
    class(bitfield_t), intent(in) :: this
@@ -141,13 +208,15 @@ contains
       this%lb = ub - this%n + 1
       this%ub = ub
    end subroutine 
+   
+   
 
-   subroutine b_set1(this,i,v)
+   subroutine b_set0(this,i,v)
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: i
    logical, intent(in) :: v
    integer :: ii, j
-      call indeces(this%lb,i,j,ii)
+      call this%indeces(i,j,ii)
       if (v) then
          this%a(j) = ibset(this%a(j),ii)
       else
@@ -155,23 +224,22 @@ contains
       end if
    end subroutine 
 
-   subroutine b_setall(this,v)
+   subroutine b_setall0(this,v)
    class(bitfield_t), intent(inout) :: this
    logical, intent(in) :: v
-   integer :: a
-      this%a(:) = merge(this%ones,this%zeros,v)
+      this%a(:) = merge(ones,zeros,v)
    end subroutine 
 
-   subroutine b_setrange(this,istart,istop,v)
+   subroutine b_setrange0(this,istart,istop,v)
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: istart, istop
    logical, intent(in) :: v
    integer :: a
    integer :: iistart, iistop, jstart, jstop
       if (istart > istop) return
-      a = merge(this%ones,this%zeros,v)
-      call indeces(this%lb,istart,jstart,iistart)
-      call indeces(this%lb,istop ,jstop ,iistop)
+      a = merge(ones,zeros,v)
+      call this%indeces(istart,jstart,iistart)
+      call this%indeces(istop ,jstop ,iistop)
       if (jstart == jstop) then
          call mvbits(a,0,istop-istart+1,this%a(jstart),iistart)
       else
@@ -180,25 +248,70 @@ contains
          call mvbits(a,0,iistop+1,this%a(jstop),0)
       endif
    end subroutine 
+   
+   subroutine b_setall1(this,v)
+   class(bitfield_t), intent(inout) :: this
+   logical, intent(in) :: v(:)
+      if (this%getsize() /= size(v)) error stop "b_setall1(): the sizes differ" 
+      call b_setrange1(this,this%lb,this%ub,v)
+   end subroutine 
 
-   logical function b_fget(this,i)
-   class(bitfield_t), intent(in) :: this
-   integer, intent(in) :: i
-   integer :: ii, j
-      call indeces(this%lb,i,j,ii)
-      b_fget = btest(this%a(j),ii)
-   end function 
+   subroutine b_setrange1(this,istart,istop,v)
+   class(bitfield_t), intent(inout) :: this
+   integer, intent(in) :: istart, istop
+   logical, intent(in) :: v(:)
+   integer :: ii, j, i, iistart, iistop, jstart, jstop
+      if (istart > istop) return
+      if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
+         error stop "b_setrange1(): out of bound indeces" 
+      call this%indeces(istart,jstart,iistart)
+      call this%indeces(istop ,jstop ,iistop)
+      i = 0
+      if (jstart == jstop) then
+         do ii = iistart, iistop
+            i = i+1
+            if (v(i)) then ; this%a(jstart) = ibset(this%a(jstart),ii)
+                      else ; this%a(jstart) = ibclr(this%a(jstart),ii)
+            end if
+         end do
+      else
+         do ii = iistart, l-1
+            i = i+1
+            if (v(i)) then ; this%a(jstart) = ibset(this%a(jstart),ii)
+                      else ; this%a(jstart) = ibclr(this%a(jstart),ii)
+            end if
+         end do
+         do j = jstart+1, jstop-1
+            do ii = 0, l-1
+               i = i+1
+               if (v(i)) then ; this%a(j) = ibset(this%a(j),ii)
+                         else ; this%a(j) = ibclr(this%a(j),ii)
+               end if
+            end do
+         end do
+         do ii = 0, iistop
+            i = i+1
+            if (v(i)) then ; this%a(jstop) = ibset(this%a(jstop),ii)
+                      else ; this%a(jstop) = ibclr(this%a(jstop),ii)
+            end if
+         end do
+      endif
+   end subroutine 
+   
 
    subroutine b_get1(this,i,v)
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: i
    logical, intent(out) :: v
-      v = this%get(i)
+   integer :: j, ii
+      call this%indeces(i,j,ii)
+      v = btest(this%a(j),ii)
    end subroutine 
-
+   
    subroutine b_getall(this,v)
    class(bitfield_t), intent(in) :: this
    logical, intent(out) :: v(:)
+      if (this%getsize() /= size(v)) error stop "b_getall(): the sizes differ" 
       call b_getrange(this,this%lb,this%ub,v)
    end subroutine 
    
@@ -206,112 +319,100 @@ contains
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: istart, istop
    logical, intent(out) :: v(:)
-   integer :: i, j, ii, iistart, iistop, jstart, jstop
+   integer :: i1, i2, j, ii, iistart, iistop, jstart, jstop
+   integer, allocatable :: iir(:)
       if (istart > istop) return
-      call indeces(this%lb,istart,jstart,iistart)
-      call indeces(this%lb,istop ,jstop ,iistop)
-      i = 0
+      if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
+         error stop "b_setrange1(): out of bound indeces" 
+      call this%indeces(istart,jstart,iistart)
+      call this%indeces(istop ,jstop ,iistop)
+      i1 = 1
       if (jstart == jstop) then
-         do ii = iistart, iistop
-            i = i+1
-            v(i) = btest(this%a(jstart),ii)
-         end do
+         iir = [(ii,ii=iistart,iistop)]
+         i2 = i1+iistop-iistart
+         v(i1:i2) = btest(this%a(jstart),iir)
+         i1 = i2+1
       else
-         do ii = iistart, l-1
-            i = i+1
-            v(i) = btest(this%a(jstart),ii)
-         end do
+         iir = [(ii,ii=iistart,l-1)]
+         i2 = i1+l-1-iistart
+         v(i1:i2) = btest(this%a(jstart),iir)
+         i1 = i2+1
+         
+         iir = [(ii,ii=0,l-1)]
          do j = jstart+1, jstop-1
-            do ii = 0, l-1
-               i = i+1
-               v(i+1) = btest(this%a(j),ii)
-            end do
+            i2 = i1+l-1
+            v(i1:i2) = btest(this%a(j),iir)
+            i1 = i2+1
          end do
-         do ii = 0, iistop
-            i = i+1
-            v(i) = btest(this%a(jstop),ii)
-         end do
+         
+         iir = [(ii,ii=0,iistop)]
+         i2 = i1+iistop
+         v(i1:i2) = btest(this%a(jstop),iir)
       end if
    end subroutine 
-   
-   logical function b_allall(this)
+         
+   function b_fget1(this,i) result(v)
    class(bitfield_t), intent(in) :: this
-      b_allall = b_allrange(this,this%lb,this%ub)
+   integer, intent(in) :: i
+   logical :: v
+      call b_get1(this,i,v)
    end function 
 
-   logical function b_allrange(this,istart,istop) result(v)
+   function b_fgetall(this) result(v)
+   class(bitfield_t), intent(in) :: this
+   logical, allocatable:: v(:)
+      allocate( v(this%getlb():this%getub()) )
+      call b_getall(this,v)
+   end function 
+
+   function b_fgetrange(this,istart,istop) result(v)
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: istart, istop
-   integer :: i, j, ii, iistart, iistop, jstart, jstop
-      v = .true.
-      if (istart > istop) return
-      call indeces(this%lb,istart,jstart,iistart)
-      call indeces(this%lb,istop ,jstop ,iistop)
-      if (jstart == jstop) then
-         do ii = iistart, iistop
-            v = v .and. btest(this%a(jstart),ii)
-            if (.not.v) return
-         end do
-      else
-         do ii = iistart, l-1
-            v = v .and. btest(this%a(jstart),ii)
-            if (.not.v) return
-         end do
-         do j = jstart+1, jstop-1
-            v = v .and. this%a(j) == this%ones
-            if (.not.v) return
-         end do
-         do ii = 0, iistop
-            v = v .and. btest(this%a(jstop),ii)
-            if (.not.v) return
-         end do
-      end if
-   end function 
+   logical, allocatable :: v(:)
+      allocate( v(istart:istop) )
+      call b_getrange(this,istart,istop,v)   
+   end function
 
-   logical function b_anyall(this)
-   class(bitfield_t), intent(in) :: this
-      b_anyall = b_anyrange(this,this%lb,this%ub)
-   end function 
-
-   logical function b_anyrange(this,istart,istop) result(v)
-   class(bitfield_t), intent(in) :: this
-   integer, intent(in) :: istart, istop
-   integer :: i, j, ii, iistart, iistop, jstart, jstop
-      v = .false.
-      if (istart > istop) return
-      call indeces(this%lb,istart,jstart,iistart)
-      call indeces(this%lb,istop ,jstop ,iistop)
-      if (jstart == jstop) then
-         do ii = iistart, iistop
-            v = v .or. btest(this%a(jstart),ii)
-            if (v) return
-         end do
-      else
-         do ii = iistart, l-1
-            v = v .or. btest(this%a(jstart),ii)
-            if (v) return
-         end do
-         do j = jstart+1, jstop-1
-            v = v .or. this%a(j) /= this%zeros
-            if (v) return
-         end do
-         do ii = 0, iistop
-            v = v .or. btest(this%a(jstop),ii)
-            if (v) return
-         end do
-      end if
-   end function 
    
-   subroutine b_pull(this,istart,istop,that)
+   
+   subroutine b_replace(this,that)
+   class(bitfield_t), intent(inout) :: this
+   type(bitfield_t), intent(in) :: that
+   integer :: iistart, iistop, jstart, jstop, j, jsource
+      if (that%getsize() <= 0) return
+      if (that%lb < this%lb .or. that%lb > this%ub .or. &
+          that%ub < this%lb .or. that%ub > this%ub)      &
+         error stop "b_push(): out of bound bounds" 
+      call this%indeces(that%lb,jstart,iistart)
+      call this%indeces(that%ub ,jstop ,iistop)
+      if (jstart == jstop) then
+         call mvbits(that%a(0),0,iistop-iistart+1,this%a(jstart),iistart)
+      else
+         call mvbits(that%a(0),0,l-iistart,this%a(jstart),iistart)
+         jsource = 0
+         do j = jstart+1, jstop-1
+            call mvbits(that%a(jsource),l-iistart,iistart,this%a(j),0)
+            jsource = jsource + 1
+            call mvbits(that%a(jsource),0,l-iistart,this%a(j),iistart)
+         end do
+         call mvbits(that%a(jsource),l-iistart,iistart,this%a(jstop),0)
+      end if
+   end subroutine 
+
+
+
+   subroutine b_extract(this,istart,istop,that)
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: istart, istop
    type(bitfield_t), intent(inout) :: that
    integer :: iistart, iistop, jstart, jstop, j, jdest
       if (istart > istop) return
-      if (allocated(that%a)) call that%deallocate()
+      if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
+         error stop "b_pull(): out of bound indeces" 
+      if (allocated(that%a)) error stop "b_pull: destination is already allocated"
       call that%allocate(istart,istop)
-      call indeces(this%lb,istart,jstart,iistart)
-      call indeces(this%lb,istop ,jstop ,iistop)
+      call this%indeces(istart,jstart,iistart)
+      call this%indeces(istop ,jstop ,iistop)
       if (jstart == jstop) then
          call mvbits(this%a(jstart),iistart,iistop-iistart+1,that%a(0),0)
       else
@@ -326,33 +427,87 @@ contains
       end if
    end subroutine 
    
-   integer function b_count1(this,istart,istop) result(v)
+   function b_fextract(this,istart,istop) result(that)
+   class(bitfield_t), intent(in) :: this
+   integer, intent(in) :: istart, istop
+   type(bitfield_t) :: that
+      call b_extract(this,istart,istop,that)
+   end function
+   
+      
+      
+
+
+   logical function b_allall(this)
+   class(bitfield_t), intent(in) :: this
+      b_allall = b_allrange(this,this%lb,this%ub)
+   end function 
+
+   logical function b_allrange(this,istart,istop) result(v)
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: istart, istop
    integer :: i, j, ii, iistart, iistop, jstart, jstop
-      v = 0
+   integer, allocatable :: iir(:)
+      v = .true.
       if (istart > istop) return
-      call indeces(this%lb,istart,jstart,iistart)
-      call indeces(this%lb,istop ,jstop ,iistop)
+      call this%indeces(istart,jstart,iistart)
+      call this%indeces(istop ,jstop ,iistop)
       if (jstart == jstop) then
-         do ii = iistart, iistop
-            v = v + merge(1,0,btest(this%a(jstart),ii))
-         end do
+         iir = [(ii,ii=iistart,iistop)]
+         v = v .and. all(btest(this%a(jstart),iir))
+         if (.not.v) return
       else
-         do ii = iistart, l-1
-            v = v + merge(1,0,btest(this%a(jstart),ii))
-         end do
+         iir = [(ii,ii=iistart,l-1)]
+         v = v .and. all(btest(this%a(jstart),iir))
+         if (.not.v) return
+
          do j = jstart+1, jstop-1
-            do ii = 0, l-1
-               v = v + merge(1,0,btest(this%a(j),ii))
-            end do
+            v = v .and. this%a(j) == ones
+            if (.not.v) return
          end do
-         do ii = 0, iistop
-            v = v + merge(1,0,btest(this%a(jstop),ii))
+         
+         iir = [(ii,ii=0,iistop)]
+         v = v .and. all(btest(this%a(jstop),iir))
+         if (.not.v) return
+      end if
+   end function 
+
+   logical function b_anyall(this)
+   class(bitfield_t), intent(in) :: this
+      b_anyall = b_anyrange(this,this%lb,this%ub)
+   end function 
+
+   logical function b_anyrange(this,istart,istop) result(v)
+   class(bitfield_t), intent(in) :: this
+   integer, intent(in) :: istart, istop
+   integer :: i, j, ii, iistart, iistop, jstart, jstop
+   integer, allocatable :: iir(:)
+      v = .false.
+      if (istart > istop) return
+      call this%indeces(istart,jstart,iistart)
+      call this%indeces(istop ,jstop ,iistop)
+      if (jstart == jstop) then
+         iir = [(ii,ii=iistart,iistop)]
+         v = v .or. any(btest(this%a(jstart),iir))
+         if (v) return
+      else
+         iir = [(ii,ii=iistart,l-1)]
+         v = v .or. any(btest(this%a(jstart),iir))
+         if (v) return
+
+         do j = jstart+1, jstop-1
+            v = v .or. this%a(j) /= zeros
+            if (v) return
          end do
+         
+         iir = [(ii,ii=0,iistop)]
+         v = v .or. any(btest(this%a(jstop),iir))
+         if (v) return
       end if
    end function 
    
+   
+
    integer function b_countall(this) result(v)
    class(bitfield_t), intent(in) :: this
       v = b_countrange(this,this%lb,this%ub)
@@ -362,38 +517,34 @@ contains
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: istart, istop
    integer :: i, j, ii, jj, iistart, iistop, jstart, jstop
-   integer, parameter :: chunk=1024
+   integer, allocatable :: iir(:)
       v = 0
       if (istart > istop) return
-      call indeces(this%lb,istart,jstart,iistart)
-      call indeces(this%lb,istop ,jstop ,iistop)
+      call this%indeces(istart,jstart,iistart)
+      call this%indeces(istop ,jstop ,iistop)
       if (jstart == jstop) then
-         do ii = iistart, iistop
-            v = v + merge(1,0,btest(this%a(jstart),ii))
-         end do
+         iir = [(ii,ii=iistart,iistop)]
+         v = v + count(btest(this%a(jstart),iir))
       else
-         do ii = iistart, l-1
-            v = v + merge(1,0,btest(this%a(jstart),ii))
+         iir = [(ii,ii=iistart,l-1)]
+         v = v + count(btest(this%a(jstart),iir))
+
+         do j = jstart+1, jstop-1
+            v = v + popcnt(this%a(j))
          end do
-         do j = jstart+1, jstop-1, chunk
-            jj = min(j+chunk-1,jstop-1)
-            do ii = 0, l-1
-               v = v + count(btest(this%a(j:jj),ii))
-            end do
-         end do
-         do ii = 0, iistop
-            v = v + merge(1,0,btest(this%a(jstop),ii))
-         end do
+         
+         iir = [(ii,ii=0,iistop)]
+         v = v + count(btest(this%a(jstop),iir))
       end if
    end function 
    
-
-
    
-   subroutine indeces(lb,i,j,ii)
-   integer, intent(in) :: lb, i
+   
+   subroutine b_indeces(this,i,j,ii)
+   class(bitfield_t), intent(in) :: this
+   integer, intent(in) :: i
    integer, intent(out) :: j, ii
-      ii = i-lb ; j = ii/l ; ii = ii - j*l
+      ii = i-this%lb ; j = ii/l ; ii = ii - j*l
    end subroutine
 
 end module

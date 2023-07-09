@@ -50,7 +50,7 @@ call b%allocate(n*m)
 call b%set(.false.)
 
 do cycle_start = 1, n*m
-   if (b%get(cycle_start)) cycle
+   if (b%fget(cycle_start)) cycle
    t = a(cycle_start)              ! keep for the end of the cycle
    cycle_to = cycle_start
    do
