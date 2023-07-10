@@ -332,7 +332,7 @@ contains
    subroutine assign_l2b_1(this,v)
    class(bitfield_t), intent(inout) :: this
    logical, intent(in) :: v(:)
-      if (this%a allocated .and. this%getsize() /= size(v)) call this%deallocate()
+      if (allocated(this%a) .and. this%getsize() /= size(v)) call this%deallocate()
       if (.not.allocated(this%a)) call b_allocate1(this,size(v))
       call b_setall1(this,v)
    end subroutine 
@@ -417,7 +417,7 @@ contains
    logical, allocatable, intent(out) :: v(:)
    class(bitfield_t), intent(in) :: this
       if (allocated(v) .and. this%getsize() /= size(v)) deallocate(v)
-      if (.not.allocated(v)) allocate( v(this%getsize() )
+      if (.not.allocated(v)) allocate( v(this%getsize()) )
       call b_getall(this,v)
    end subroutine 
 
