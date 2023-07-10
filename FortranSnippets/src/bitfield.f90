@@ -35,13 +35,18 @@
 !     Note: b must always be allocated beforehand
 !     Note: setting from a logical array is highly inefficient
 !
+! b = bool
+!     type(bitfield_t) :: b
+!     logical :: bool[(:)]
+!     Note: allocation on assignement can occur if bool is rank 1
+!
 ! call b%get(pos,bool)
 !     logical :: bool
 ! call b%get(bool)
 ! call b%get(frompos,topos,bool)
 !     logical :: bool(:)
 !     integer :: pos, frompos, topos
-!     bool(:) must be allocated beforehand
+!     Note: bool(:) must be allocated beforehand
 !
 ! bool = b%fget(pos)
 !     logical :: bool
@@ -49,7 +54,12 @@
 ! bool = b%fget(frompos,topos)
 !     logical :: bool(:)
 !     integer :: pos, frompos, topos
-!     bool(:) must be allocated beforehand
+!     Note: bool(:) must be allocated beforehand
+!
+! bool = b
+!     type(bitfield_t) :: b
+!     logical, allocatable :: bool(:)
+!     Note: works only for an allocatable LHS; allocation on assignement can occur
 !
 ! call b%replace(c)
 !     type(bitfield_t) :: c
@@ -78,16 +88,19 @@ implicit none
 
 private
 
-integer, parameter :: l=bit_size(0)
+public :: bitfield_t
+public :: assignment(=)
+
+integer, parameter :: l = bit_size(0)
 integer :: zeros, ones
 logical :: initialized = .false.
 
-type, public :: bitfield_t
+type :: bitfield_t
    private
    integer, allocatable :: a(:)
    integer :: n = -1
-   integer :: lb, ub
-   integer :: zeros, ones
+   integer :: lb = 1
+   integer :: ub = 0
 contains
    private
    procedure :: allocate1 => b_allocate1
@@ -107,9 +120,7 @@ contains
    procedure :: setall1 => b_setall1
    procedure :: setrange1 => b_setrange1
    generic, public:: set => set0, setall0, setall1, setrange0, setrange1
-   
-   !generic, public :: assignment(=) => setall1 
-   
+      
    procedure :: get1 => b_get1
    procedure :: getall => b_getall
    procedure :: getrange => b_getrange
@@ -138,9 +149,9 @@ contains
    procedure, private :: indeces => b_indeces
 end type
 
-!interface assignment(=)
-!   module procedure assign_b_to_l
-!end interface
+interface assignment(=)
+   module procedure assign_l2b_0, assign_l2b_1, assign_b2l
+end interface
 
 contains
 
@@ -165,10 +176,15 @@ contains
    integer :: ii
       if (.not.initialized) call init()
       if (allocated(this%a)) error stop "bitfield is already allocated"
-      this%n = ub - lb + 1 
-      this%lb = lb
-      this%ub = ub
-      allocate( this%a(0:(this%n-1)/l) )
+      if (ub >= lb) then
+         this%n = ub - lb + 1 
+         this%lb = lb
+         this%ub = ub
+         allocate( this%a(0:(this%n-1)/l) )
+      else
+         this%n = 0 
+         allocate( this%a(0) )
+      end if
    end subroutine 
 
    subroutine b_deallocate(this)
@@ -176,6 +192,8 @@ contains
       if (.not.allocated(this%a)) error stop "bitfield is not allocated"
       deallocate( this%a )
       this%n = -1
+      this%lb = 1
+      this%ub = 0
    end subroutine 
    
 
@@ -192,21 +210,25 @@ contains
 
    integer function b_getub(this)
    class(bitfield_t), intent(in) :: this
-      b_getub = this%lb + this%n - 1
+      b_getub = this%ub
    end function 
 
    subroutine b_setlb(this,lb)
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: lb
-      this%lb = lb
-      this%ub = lb + this%n -1
+      if (this%n > 0) then
+         this%lb = lb
+         this%ub = lb + this%n -1
+      end if
    end subroutine 
 
    subroutine b_setub(this,ub)
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: ub
-      this%lb = ub - this%n + 1
-      this%ub = ub
+      if (this%n > 0) then
+         this%lb = ub - this%n + 1
+         this%ub = ub
+      end if
    end subroutine 
    
    
@@ -216,6 +238,7 @@ contains
    integer, intent(in) :: i
    logical, intent(in) :: v
    integer :: ii, j
+      ! no runtime check, as it would hurt the performances for a single bit set
       call this%indeces(i,j,ii)
       if (v) then
          this%a(j) = ibset(this%a(j),ii)
@@ -227,6 +250,7 @@ contains
    subroutine b_setall0(this,v)
    class(bitfield_t), intent(inout) :: this
    logical, intent(in) :: v
+      if (.not.allocated(this%a)) error stop "b_setall0: bitfield is not allocated"
       this%a(:) = merge(ones,zeros,v)
    end subroutine 
 
@@ -237,6 +261,7 @@ contains
    integer :: a
    integer :: iistart, iistop, jstart, jstop
       if (istart > istop) return
+      if (.not.allocated(this%a)) error stop "b_setrange0: bitfield is not allocated"
       a = merge(ones,zeros,v)
       call this%indeces(istart,jstart,iistart)
       call this%indeces(istop ,jstop ,iistop)
@@ -252,7 +277,6 @@ contains
    subroutine b_setall1(this,v)
    class(bitfield_t), intent(inout) :: this
    logical, intent(in) :: v(:)
-      if (this%getsize() /= size(v)) error stop "b_setall1(): the sizes differ" 
       call b_setrange1(this,this%lb,this%ub,v)
    end subroutine 
 
@@ -262,6 +286,7 @@ contains
    logical, intent(in) :: v(:)
    integer :: ii, j, i, iistart, iistop, jstart, jstop
       if (istart > istop) return
+      if (.not.allocated(this%a)) error stop "b_setrang1: bitfield is not allocated"
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange1(): out of bound indeces" 
       call this%indeces(istart,jstart,iistart)
@@ -297,6 +322,21 @@ contains
          end do
       endif
    end subroutine 
+
+   subroutine assign_l2b_0(this,v)
+   class(bitfield_t), intent(inout) :: this
+   logical, intent(in) :: v
+      call b_setall0(this,v)
+   end subroutine 
+   
+   subroutine assign_l2b_1(this,v)
+   class(bitfield_t), intent(inout) :: this
+   logical, intent(in) :: v(:)
+      if (this%a allocated .and. this%getsize() /= size(v)) call this%deallocate()
+      if (.not.allocated(this%a)) call b_allocate1(this,size(v))
+      call b_setall1(this,v)
+   end subroutine 
+
    
 
    subroutine b_get1(this,i,v)
@@ -373,7 +413,15 @@ contains
       call b_getrange(this,istart,istop,v)   
    end function
 
-   
+   subroutine assign_b2l(v,this)
+   logical, allocatable, intent(out) :: v(:)
+   class(bitfield_t), intent(in) :: this
+      if (allocated(v) .and. this%getsize() /= size(v)) deallocate(v)
+      if (.not.allocated(v)) allocate( v(this%getsize() )
+      call b_getall(this,v)
+   end subroutine 
+
+
    
    subroutine b_replace(this,that)
    class(bitfield_t), intent(inout) :: this
