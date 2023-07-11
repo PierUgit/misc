@@ -29,9 +29,9 @@
 !
 ! call b%set(bool)
 ! call b%set(pos,bool) 
-! call b%set(frompos,topos,bool) 
+! call b%set(from,to,inc,bool) 
 !     logical :: bool[(:)]
-!     integer :: pos, frompos, topos
+!     integer :: pos, from, top, inc
 !     Note: b must always be allocated beforehand
 !     Note: setting from a logical array is highly inefficient
 !
@@ -43,7 +43,7 @@
 ! call b%get(pos,bool)
 !     logical :: bool
 ! call b%get(bool)
-! call b%get(frompos,topos,bool)
+! call b%get(from,top,inc,bool)
 !     logical :: bool(:)
 !     integer :: pos, frompos, topos
 !     Note: bool(:) must be allocated beforehand
@@ -51,9 +51,9 @@
 ! bool = b%fget(pos)
 !     logical :: bool
 ! bool = b%fget()
-! bool = b%fget(frompos,topos)
+! bool = b%fget(from,to,inc)
 !     logical :: bool(:)
-!     integer :: pos, frompos, topos
+!     integer :: pos, from, top, inc
 !     Note: bool(:) must be allocated beforehand
 !
 ! bool = b
@@ -64,23 +64,23 @@
 ! call b%replace(c)
 !     type(bitfield_t) :: c
 !
-! call b%extract(frompos,topos,c)
-! c = b%fextract(frompos,topos)
-!     integer :: frompos, topos
+! call b%extract(from,to,inc,c)
+! c = b%fextract(from,to,inc)
+!     integer :: from, to, inc
 !     type(bitfield_t) :: c
 !     Note: in the subroutine form, c must not be allocated beforehand
 !
 ! n = b%count() 
-! n = b%count(frompos,topos) 
-!     integer :: frompos, topos
+! n = b%count(from,top) 
+!     integer :: from, to
 !
 ! bool = b%all()            
-! bool = b%all(frompos,topos) 
-!     integer :: frompos, topos
+! bool = b%all(from,to) 
+!     integer :: from, to
 !
 ! bool = b%any()           
-! bool = b%any(frompos,topos) 
-!     integer :: frompos, topos
+! bool = b%any(from,to) 
+!     integer :: from, to
 !***********************************************************************************************
 module bitfield
 !use iso_fortran_env
@@ -256,10 +256,10 @@ contains
 
    subroutine b_setrange0(this,istart,istop,inc,v)
    class(bitfield_t), intent(inout) :: this
-   integer, intent(in) :: istart
+   integer, intent(in) :: istart, istop, inc
    logical, intent(in) :: v
    integer :: a, n
-   integer :: istop, iistart, iistop, jstart, jstop
+   integer :: iistart, iistop, jstart, jstop
    type(bitfield_t) :: that
       if ((istop-istart)*inc < 0) return
       if (.not.allocated(this%a)) error stop "b_setrange0: bitfield is not allocated"
@@ -286,7 +286,7 @@ contains
    subroutine b_setall1(this,v)
    class(bitfield_t), intent(inout) :: this
    logical, intent(in) :: v(:)
-      call b_setrange1(this,this%lb,this%ub,v)
+      call b_setrange1(this,this%lb,this%ub,1,v)
    end subroutine 
 
    subroutine b_setrange1(this,istart,istop,inc,v)
@@ -313,6 +313,7 @@ contains
          do i = 1, size(v)
             if (v(i)) then ; this%a(j) = ibset(this%a(j),ii)
                       else ; this%a(j) = ibclr(this%a(j),ii)
+            end if
             ii = ii + inc
             do 
                if (ii < l) exit
@@ -427,12 +428,12 @@ contains
       call b_getall(this,v)
    end function 
 
-   function b_fgetrange(this,istart,istop) result(v)
+   function b_fgetrange(this,istart,istop,inc) result(v)
    class(bitfield_t), intent(in) :: this
-   integer, intent(in) :: istart, istop
+   integer, intent(in) :: istart, istop, inc
    logical, allocatable :: v(:)
       allocate( v(istart:istop) )
-      call b_getrange(this,istart,istop,v)   
+      call b_getrange(this,istart,istop,inc,v)   
    end function
 
    subroutine assign_b2l(v,this)
@@ -449,7 +450,7 @@ contains
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: istart, istop, inc
    type(bitfield_t), intent(in) :: that
-   integer :: iistart, iistop, jstart, jstop, j, jsource, iisource
+   integer :: i, ii, iistart, iistop, jstart, jstop, j, jsource, iisource
       if (that%getsize() <= 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub)      &
          error stop "b_replace(): out of bound bounds" 
@@ -474,8 +475,8 @@ contains
          jsource = 0
          iisource = 0
          do i = istart, istop, inc
-            if (that%a(jsource),iisource) then ; this%a(j) = ibset(this%a(j),ii)
-                                          else ; this%a(j) = ibclr(this%a(j),ii)
+            if (btest(that%a(jsource),iisource)) then ; this%a(j) = ibset(this%a(j),ii)
+                                                 else ; this%a(j) = ibclr(this%a(j),ii)
             end if
             ii = ii + inc
             do 
@@ -490,7 +491,7 @@ contains
             end do
             iisource = iisource + 1
             if (iisource == l) then
-               iidest = 0
+               iisource = 0
                jsource = jsource + 1
             end if
          end do
@@ -503,7 +504,7 @@ contains
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: istart, istop, inc
    type(bitfield_t), intent(inout) :: that
-   integer :: iistart, iistop, jstart, jstop, j, jdest, iidest, n
+   integer :: i, ii, iistart, iistop, jstart, jstop, j, jdest, iidest, n
       if ((istop-istart)*inc < 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
          error stop "b_extract(): out of bound indeces" 
@@ -556,7 +557,7 @@ contains
    
    function b_fextract(this,istart,istop,inc) result(that)
    class(bitfield_t), intent(in) :: this
-   integer, intent(in) :: istart, istop
+   integer, intent(in) :: istart, istop, inc
    type(bitfield_t) :: that
       call b_extract(this,istart,istop,inc,that)
    end function

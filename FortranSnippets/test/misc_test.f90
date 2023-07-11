@@ -23,13 +23,14 @@ write(*,*) "PASSED"
 write(*,"(A)",advance="no") "bitfield tests 2..."
 
 call bi%allocate(-10,60)
-call bi%set(-10,10,.true.)
-call bi%set(11,60,.false.)
+call bi%set(-10,10,1,.true.)
+call bi%set(11,60,1,.false.)
 if (.not.bi%fget(0)) error stop
 if (bi%fget(20)) error stop
-call bi%extract(0,20,ci)
+call bi%extract(0,20,1,ci)
+call ci%setlb(0)
 if (ci%getlb() /= 0) error stop
-if (any(ci%fget() .neqv. bi%fget(0,20))) error stop 
+if (any(ci%fget() .neqv. bi%fget(0,20,1))) error stop 
 
 write(*,*) "PASSED"
 
@@ -39,7 +40,7 @@ li = ci%fget()
 if (.not.all(li(1:11)) .or. any(li(12:21))) error stop "a"
 if (bi%count(0,60) /= 11) error stop "b"
 call bi%deallocate()
-call ci%extract(5,15,di)
+call ci%extract(5,15,1,di)
 if (any(di%fget() .neqv. li(6:16))) error stop "c"
 
 write(*,*) "PASSED"
@@ -47,8 +48,8 @@ write(*,*) "PASSED"
 write(*,"(A)",advance="no") "bitfield tests 4..."
 
 call bi%allocate(10**9)
-call bi%set(1,123456789,.true.)
-call bi%set(123456790,10**9,.false.)
+call bi%set(1,123456789,1,.true.)
+call bi%set(123456790,10**9,1,.false.)
 if (bi%count() /= 123456789) error stop
 
 write(*,*) "PASSED"
@@ -66,6 +67,8 @@ integer :: n, m
 allocate( a(NMMAX**2) )
 call random_number(a)
 
+write(*,"(A)",advance="no") "In place transpose test..."
+
 do n = 1, NMMAX
    do m = 1, NMMAX
       b(1:n,1:m) => a(1:n*m)
@@ -78,8 +81,9 @@ do n = 1, NMMAX
          error stop
       end if
    end do
-   write(*,*) "n =",n,"PASSED"
 end do
+
+write(*,*) "PASSED"
 
 END BLOCK inplace_tranpose
 
