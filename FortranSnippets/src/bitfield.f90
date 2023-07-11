@@ -254,24 +254,33 @@ contains
       this%a(:) = merge(ones,zeros,v)
    end subroutine 
 
-   subroutine b_setrange0(this,istart,istop,v)
+   subroutine b_setrange0(this,istart,istop,inc,v)
    class(bitfield_t), intent(inout) :: this
-   integer, intent(in) :: istart, istop
+   integer, intent(in) :: istart
    logical, intent(in) :: v
-   integer :: a
-   integer :: iistart, iistop, jstart, jstop
-      if (istart > istop) return
+   integer :: a, n
+   integer :: istop, iistart, iistop, jstart, jstop
+   type(bitfield_t) :: that
+      if ((istop-istart)*inc < 0) return
       if (.not.allocated(this%a)) error stop "b_setrange0: bitfield is not allocated"
-      a = merge(ones,zeros,v)
-      call this%indeces(istart,jstart,iistart)
-      call this%indeces(istop ,jstop ,iistop)
-      if (jstart == jstop) then
-         call mvbits(a,0,istop-istart+1,this%a(jstart),iistart)
+      if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
+         error stop "b_setrange0(): out of bound indeces" 
+      if (inc == 1) then
+         a = merge(ones,zeros,v)
+         call this%indeces(istart,jstart,iistart)
+         call this%indeces(istop ,jstop ,iistop)
+         if (jstart == jstop) then
+            call mvbits(a,0,istop-istart+1,this%a(jstart),iistart)
+         else
+            call mvbits(a,0,l-iistart,this%a(jstart),iistart)
+            this%a(jstart+1:jstop-1) = a
+            call mvbits(a,0,iistop+1,this%a(jstop),0)
+         endif
       else
-         call mvbits(a,0,l-iistart,this%a(jstart),iistart)
-         this%a(jstart+1:jstop-1) = a
-         call mvbits(a,0,iistop+1,this%a(jstop),0)
-      endif
+         call b_extract(this,istart,istop,inc,that)
+         call b_setall0(that,v)
+         call b_replace(this,istart,istop,inc,that)
+      end if
    end subroutine 
    
    subroutine b_setall1(this,v)
@@ -280,45 +289,41 @@ contains
       call b_setrange1(this,this%lb,this%ub,v)
    end subroutine 
 
-   subroutine b_setrange1(this,istart,istop,v)
+   subroutine b_setrange1(this,istart,istop,inc,v)
    class(bitfield_t), intent(inout) :: this
-   integer, intent(in) :: istart, istop
+   integer, intent(in) :: istart, istop, inc
    logical, intent(in) :: v(:)
    integer :: ii, j, i, iistart, iistop, jstart, jstop
-      if (istart > istop) return
-      if (.not.allocated(this%a)) error stop "b_setrang1: bitfield is not allocated"
+      if (.not.allocated(this%a)) error stop "b_setrange1: bitfield is not allocated"
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange1(): out of bound indeces" 
       call this%indeces(istart,jstart,iistart)
       call this%indeces(istop ,jstop ,iistop)
-      i = 0
       if (jstart == jstop) then
-         do ii = iistart, iistop
+         i = 0
+         do ii = iistart, iistop, inc
             i = i+1
             if (v(i)) then ; this%a(jstart) = ibset(this%a(jstart),ii)
                       else ; this%a(jstart) = ibclr(this%a(jstart),ii)
             end if
          end do
       else
-         do ii = iistart, l-1
-            i = i+1
-            if (v(i)) then ; this%a(jstart) = ibset(this%a(jstart),ii)
-                      else ; this%a(jstart) = ibclr(this%a(jstart),ii)
-            end if
-         end do
-         do j = jstart+1, jstop-1
-            do ii = 0, l-1
-               i = i+1
-               if (v(i)) then ; this%a(j) = ibset(this%a(j),ii)
-                         else ; this%a(j) = ibclr(this%a(j),ii)
-               end if
+         ii = iistart
+         j = jstart
+         do i = 1, size(v)
+            if (v(i)) then ; this%a(j) = ibset(this%a(j),ii)
+                      else ; this%a(j) = ibclr(this%a(j),ii)
+            ii = ii + inc
+            do 
+               if (ii < l) exit
+               ii = ii - l
+               j = j + 1
             end do
-         end do
-         do ii = 0, iistop
-            i = i+1
-            if (v(i)) then ; this%a(jstop) = ibset(this%a(jstop),ii)
-                      else ; this%a(jstop) = ibclr(this%a(jstop),ii)
-            end if
+            do 
+               if (ii >= 0) exit
+               ii = ii + l
+               j = j - 1
+            end do
          end do
       endif
    end subroutine 
@@ -367,7 +372,7 @@ contains
          error stop "b_setrange1(): out of bound indeces" 
       call this%indeces(istart,jstart,iistart)
       call this%indeces(istop ,jstop ,iistop)
-      if (abs(inc) <= l/4) then
+      if (abs(inc) <= l/2) then
          i1 = 1
          if (jstart == jstop) then
             iir = [(ii,ii=iistart,iistop,inc)]
@@ -440,13 +445,12 @@ contains
 
 
    
-   subroutine b_replace(this,istart,inc,that)
+   subroutine b_replace(this,istart,istop,inc,that)
    class(bitfield_t), intent(inout) :: this
-   integer, intent(in) :: istart, inc
+   integer, intent(in) :: istart, istop, inc
    type(bitfield_t), intent(in) :: that
-   integer :: istop, iistart, iistop, jstart, jstop, j, jsource, iisource
+   integer :: iistart, iistop, jstart, jstop, j, jsource, iisource
       if (that%getsize() <= 0) return
-      istop = istart + inc*(that%getsize()-1)
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub)      &
          error stop "b_replace(): out of bound bounds" 
       call this%indeces(istart,jstart,iistart)
