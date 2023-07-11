@@ -352,42 +352,59 @@ contains
    class(bitfield_t), intent(in) :: this
    logical, intent(out) :: v(:)
       if (this%getsize() /= size(v)) error stop "b_getall(): the sizes differ" 
-      call b_getrange(this,this%lb,this%ub,v)
+      call b_getrange(this,this%lb,this%ub,1,v)
    end subroutine 
    
-   subroutine b_getrange(this,istart,istop,v)
+   recursive subroutine b_getrange(this,istart,istop,inc,v)
    class(bitfield_t), intent(in) :: this
-   integer, intent(in) :: istart, istop
+   integer, intent(in) :: istart, istop, inc
    logical, intent(out) :: v(:)
-   integer :: i1, i2, j, ii, iistart, iistop, jstart, jstop
+   integer :: i1, i2, j, ii, iistart, iistop, jstart, jstop, iinew
    integer, allocatable :: iir(:)
-      if (istart > istop) return
+   type(bitfield_t) :: that
+      if ((istop-istart)*inc < 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange1(): out of bound indeces" 
       call this%indeces(istart,jstart,iistart)
       call this%indeces(istop ,jstop ,iistop)
-      i1 = 1
-      if (jstart == jstop) then
-         iir = [(ii,ii=iistart,iistop)]
-         i2 = i1+iistop-iistart
-         v(i1:i2) = btest(this%a(jstart),iir)
-         i1 = i2+1
-      else
-         iir = [(ii,ii=iistart,l-1)]
-         i2 = i1+l-1-iistart
-         v(i1:i2) = btest(this%a(jstart),iir)
-         i1 = i2+1
-         
-         iir = [(ii,ii=0,l-1)]
-         do j = jstart+1, jstop-1
-            i2 = i1+l-1
-            v(i1:i2) = btest(this%a(j),iir)
+      if (abs(inc) <= l/4) then
+         i1 = 1
+         if (jstart == jstop) then
+            iir = [(ii,ii=iistart,iistop,inc)]
+            i2 = i1+size(iir)-1
+            v(i1:i2) = btest(this%a(jstart),iir)
             i1 = i2+1
-         end do
-         
-         iir = [(ii,ii=0,iistop)]
-         i2 = i1+iistop
-         v(i1:i2) = btest(this%a(jstop),iir)
+         else
+            if (inc > 0) then ; iir = [(ii,ii=iistart,l-1,inc)]
+                         else ; iir = [(ii,ii=iistart,0,inc)]
+            end if
+            i2 = i1+size(iir)-1
+            v(i1:i2) = btest(this%a(jstart),iir)
+            i1 = i2+1
+                     
+            do j = jstart+1, jstop-1
+               if (inc > 0) then 
+                  iinew = iir(size(iir)) + inc - l
+                  iir = [(ii,ii=iinew,l-1,inc)]
+               else 
+                  iinew = iir(size(iir)) + inc + l
+                  iir = [(ii,ii=iinew,0,inc)]
+               end if
+               i2 = i1+size(iir)-1
+               v(i1:i2) = btest(this%a(j),iir)
+               i1 = i2+1
+            end do
+            
+            if (inc > 0) then ; iinew = iir(size(iir)) + inc - l
+                         else ; iinew = iir(size(iir)) + inc + l
+            end if
+            iir = [(ii,ii=iinew,iistop,inc)]
+            i2 = i1+size(iir)-1
+            v(i1:i2) = btest(this%a(jstop),iir)
+         end if
+      else
+         call b_extract(this,istart,istop,inc,that)
+         call b_getall(that,v)
       end if
    end subroutine 
          
