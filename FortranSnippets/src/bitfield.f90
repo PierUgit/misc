@@ -423,63 +423,121 @@ contains
 
 
    
-   subroutine b_replace(this,that)
+   subroutine b_replace(this,istart,inc,that)
    class(bitfield_t), intent(inout) :: this
+   integer, intent(in) :: istart, inc
    type(bitfield_t), intent(in) :: that
-   integer :: iistart, iistop, jstart, jstop, j, jsource
+   integer :: istop, iistart, iistop, jstart, jstop, j, jsource, iisource
       if (that%getsize() <= 0) return
-      if (that%lb < this%lb .or. that%lb > this%ub .or. &
-          that%ub < this%lb .or. that%ub > this%ub)      &
-         error stop "b_push(): out of bound bounds" 
-      call this%indeces(that%lb,jstart,iistart)
-      call this%indeces(that%ub ,jstop ,iistop)
-      if (jstart == jstop) then
-         call mvbits(that%a(0),0,iistop-iistart+1,this%a(jstart),iistart)
+      istop = istart + inc*(that%getsize()-1)
+      if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub)      &
+         error stop "b_replace(): out of bound bounds" 
+      call this%indeces(istart,jstart,iistart)
+      call this%indeces(istop,jstop ,iistop)
+      if (inc == 1) then
+         if (jstart == jstop) then
+            call mvbits(that%a(0),0,iistop-iistart+1,this%a(jstart),iistart)
+         else
+            call mvbits(that%a(0),0,l-iistart,this%a(jstart),iistart)
+            jsource = 0
+            do j = jstart+1, jstop-1
+               call mvbits(that%a(jsource),l-iistart,iistart,this%a(j),0)
+               jsource = jsource + 1
+               call mvbits(that%a(jsource),0,l-iistart,this%a(j),iistart)
+            end do
+            call mvbits(that%a(jsource),l-iistart,iistart,this%a(jstop),0)
+         end if
       else
-         call mvbits(that%a(0),0,l-iistart,this%a(jstart),iistart)
+         j = jstart
+         ii = iistart
          jsource = 0
-         do j = jstart+1, jstop-1
-            call mvbits(that%a(jsource),l-iistart,iistart,this%a(j),0)
-            jsource = jsource + 1
-            call mvbits(that%a(jsource),0,l-iistart,this%a(j),iistart)
+         iisource = 0
+         do i = istart, istop, inc
+            if (that%a(jsource),iisource) then ; this%a(j) = ibset(this%a(j),ii)
+                                          else ; this%a(j) = ibclr(this%a(j),ii)
+            end if
+            ii = ii + inc
+            do 
+               if (ii < l) exit
+               ii = ii - l
+               j = j + 1
+            end do 
+            do
+               if (ii >= 0) exit
+               ii = ii + l
+               j = j - 1
+            end do
+            iisource = iisource + 1
+            if (iisource == l) then
+               iidest = 0
+               jsource = jsource + 1
+            end if
          end do
-         call mvbits(that%a(jsource),l-iistart,iistart,this%a(jstop),0)
       end if
    end subroutine 
 
 
 
-   subroutine b_extract(this,istart,istop,that)
+   subroutine b_extract(this,istart,istop,inc,that)
    class(bitfield_t), intent(in) :: this
-   integer, intent(in) :: istart, istop
+   integer, intent(in) :: istart, istop, inc
    type(bitfield_t), intent(inout) :: that
-   integer :: iistart, iistop, jstart, jstop, j, jdest
-      if (istart > istop) return
+   integer :: iistart, iistop, jstart, jstop, j, jdest, iidest, n
+      if ((istop-istart)*inc < 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
-         error stop "b_pull(): out of bound indeces" 
+         error stop "b_extract(): out of bound indeces" 
       if (allocated(that%a)) error stop "b_pull: destination is already allocated"
-      call that%allocate(istart,istop)
+      n = (istop-istart)/inc + 1
+      call that%allocate(n)
       call this%indeces(istart,jstart,iistart)
       call this%indeces(istop ,jstop ,iistop)
-      if (jstart == jstop) then
-         call mvbits(this%a(jstart),iistart,iistop-iistart+1,that%a(0),0)
+      if (inc == 1) then
+         if (jstart == jstop) then
+            call mvbits(this%a(jstart),iistart,iistop-iistart+1,that%a(0),0)
+         else
+            call mvbits(this%a(jstart),iistart,l-iistart,that%a(0),0)
+            jdest = 0
+            do j = jstart+1, jstop-1
+               call mvbits(this%a(j),0,iistart,that%a(jdest),l-iistart)
+               jdest = jdest + 1
+               call mvbits(this%a(j),iistart,l-iistart,that%a(jdest),0)
+            end do
+            call mvbits(this%a(jstop),0,iistart,that%a(jdest),l-iistart)
+         end if
       else
-         call mvbits(this%a(jstart),iistart,l-iistart,that%a(0),0)
+         j = jstart
+         ii = iistart
          jdest = 0
-         do j = jstart+1, jstop-1
-            call mvbits(this%a(j),0,iistart,that%a(jdest),l-iistart)
-            jdest = jdest + 1
-            call mvbits(this%a(j),iistart,l-iistart,that%a(jdest),0)
+         iidest = 0
+         do i = istart, istop, inc
+            if (btest(j,ii)) then ; that%a(jdest) = ibset(that%a(jdest),iidest)
+                             else ; that%a(jdest) = ibclr(that%a(jdest),iidest)
+            end if
+            ii = ii + inc
+            do 
+               if (ii < l) exit
+               ii = ii - l
+               j = j + 1
+            end do 
+            do
+               if (ii >= 0) exit
+               ii = ii + l
+               j = j - 1
+            end do
+            iidest = iidest + 1
+            if (iidest == l) then
+               iidest = 0
+               jdest = jdest + 1
+            end if
          end do
-         call mvbits(this%a(jstop),0,iistart,that%a(jdest),l-iistart)
       end if
    end subroutine 
    
-   function b_fextract(this,istart,istop) result(that)
+   function b_fextract(this,istart,istop,inc) result(that)
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: istart, istop
    type(bitfield_t) :: that
-      call b_extract(this,istart,istop,that)
+      call b_extract(this,istart,istop,inc,that)
    end function
    
       
