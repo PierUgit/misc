@@ -38,7 +38,7 @@ write(*,"(A)",advance="no") "bitfield tests 3..."
 
 li = ci%fget()
 if (.not.all(li(1:11)) .or. any(li(12:21))) error stop "a"
-if (bi%count(0,60) /= 11) error stop "b"
+if (bi%count(0,60,1) /= 11) error stop "b"
 call bi%deallocate()
 call ci%extract(5,15,1,di)
 if (any(di%fget() .neqv. li(6:16))) error stop "c"
