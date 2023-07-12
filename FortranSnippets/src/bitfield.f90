@@ -365,48 +365,26 @@ contains
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: istart, istop, inc
    logical, intent(out) :: v(:)
-   integer :: i1, i2, j, ii, iistart, iistop, jstart, jstop
+   integer :: i1, i2, j, iistart, iistop, jstart, jstop
    integer, allocatable :: iir(:)
-   type(bitfield_t) :: that
       if ((istop-istart)*inc < 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange1(): out of bound indeces" 
       call this%indeces(istart,jstart,iistart)
       call this%indeces(istop ,jstop ,iistop)
-      if (abs(inc) <= l/2) then
-         i1 = 1
-         if (jstart == jstop) then
-            iir = [(ii,ii=iistart,iistop,inc)]
-            i2 = i1+size(iir)-1
-            v(i1:i2) = btest(this%a(jstart),iir)
-            i1 = i2+1
-         else
-            if (inc > 0) then ; iir = [(ii,ii=iistart,l-1,inc)]
-                         else ; iir = [(ii,ii=iistart,0,inc)]
-            end if
-            i2 = i1+size(iir)-1
-            v(i1:i2) = btest(this%a(jstart),iir)
-            i1 = i2+1
-                     
-            do j = jstart+sign(1,inc), jstop-sign(1,inc)
-               iistart = iir(size(iir)) + inc - sign(l,inc)
-               if (inc > 0) then ; iir = [(ii,ii=iistart,l-1,inc)]
-                            else ; iir = [(ii,ii=iistart,0,inc)]
-               end if
-               i2 = i1+size(iir)-1
-               v(i1:i2) = btest(this%a(j),iir)
-               i1 = i2+1
-            end do
-            
-            iistart = iir(size(iir)) + inc - sign(l,inc)
-            iir = [(ii,ii=iistart,iistop,inc)]
-            i2 = i1+size(iir)-1
-            v(i1:i2) = btest(this%a(jstop),iir)
-         end if
-      else
-         call b_extract(this,istart,istop,inc,that)
-         call b_getall(that,v)
-      end if
+
+      j = jstart
+      i1 = 1
+      call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
+      i2 = i1+size(iir)-1
+      v(i1:i2) = btest(this%a(j),iir)
+      do
+         if (j == jstop) exit
+         i1 = i2+1
+         call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
+         i2 = i1+size(iir)-1
+         v(i1:i2) = btest(this%a(j),iir)
+      end do
    end subroutine 
          
    function b_fget1(this,i) result(v)
@@ -569,22 +547,34 @@ contains
    logical function b_allrange(this,istart,istop,inc) result(v)
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: istart, istop, inc
-   integer :: i, j, ii, iistart, iistop, jstart, jstop
+   integer :: i, j, iistart, iistop, jstart, jstop
    integer, allocatable :: iir(:)
       v = .true.
       if (istart > istop) return
       call this%indeces(istart,jstart,iistart)
       call this%indeces(istop ,jstop ,iistop)
+
       j = jstart
-      do 
-         call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
-         if (size(iir) == l) then
+      call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
+      v = all(btest(this%a(j),iir))
+      if (.not.v) return
+      if (jstop == jstart) return
+      if (abs(inc) == 1) then
+         deallocate(iir)
+         do j = jstart + sign(1,inc), jstop - sign(1,inc), sign(1,inc)
             v = v .and. this%a(j) == ones
-         else
+            if (.not.v) return
+         end do
+         call b_getiir(jstart,jstop,iistart,iistop,inc,jstop,iir)
+         v = v .and. all(btest(this%a(jstop),iir))
+      else
+         do
+            call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
             v = v .and. all(btest(this%a(j),iir))
-         end if
-         if (j == jstop) exit
-      end do
+            if (.not.v) return
+            if (j == jstop) exit
+         end do
+      end if
    end function 
 
    logical function b_anyall(this)
@@ -598,20 +588,31 @@ contains
    integer :: j, iistart, iistop, jstart, jstop
    integer, allocatable :: iir(:)
    type(bitfield_t) :: that
-      v = .false.
       if (istart > istop) return
       call this%indeces(istart,jstart,iistart)
       call this%indeces(istop ,jstop ,iistop)
+
       j = jstart
-      do 
-         call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
-         if (size(iir) == l) then
+      call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
+      v = any(btest(this%a(j),iir))
+      if (v) return
+      if (jstop == jstart) return
+      if (abs(inc) == 1) then
+         deallocate(iir)
+         do j = jstart + sign(1,inc), jstop - sign(1,inc), sign(1,inc)
             v = v .or. this%a(j) /= zeros
-         else
+            if (v) return
+         end do
+         call b_getiir(jstart,jstop,iistart,iistop,inc,jstop,iir)
+         v = v .or. any(btest(this%a(jstop),iir))
+      else
+         do
+            call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
             v = v .or. any(btest(this%a(j),iir))
-         end if
-         if (j == jstop) exit
-      end do
+            if (v) return
+            if (j == jstop) exit
+         end do
+      end if
    end function 
    
    
@@ -627,20 +628,29 @@ contains
    integer :: j, iistart, iistop, jstart, jstop
    integer, allocatable :: iir(:)
    type(bitfield_t) :: that
-      v = 0
       if ((istop-istart)*inc < 0) return
       call this%indeces(istart,jstart,iistart)
       call this%indeces(istop ,jstop ,iistop)
+
       j = jstart
-      do 
-         call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
-         if (size(iir) == l) then
+      call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
+      v = count(btest(this%a(j),iir))
+      if (jstop == jstart) return
+      if (abs(inc) == 1) then
+         deallocate(iir)
+         do j = jstart + sign(1,inc), jstop - sign(1,inc), sign(1,inc)
             v = v + popcnt(this%a(j))
-         else
+         end do
+         call b_getiir(jstart,jstop,iistart,iistop,inc,jstop,iir)
+         v = v + count(btest(this%a(jstop),iir))
+      else
+         do
+            call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
             v = v + count(btest(this%a(j),iir))
-         end if
-         if (j == jstop) exit
-      end do
+            if (j == jstop) exit
+         end do
+      end if
+
    end function 
    
    
@@ -660,22 +670,22 @@ contains
    if (.not.allocated(iir)) then
       if (jstart == jstop) then
          iir = [(ii,ii=iistart,iistop,inc)]
-      else
+      else if (j == jstart) then
          if (inc > 0) then ; iir = [(ii,ii=iistart,l-1,inc)]
                       else ; iir = [(ii,ii=iistart,0,inc)]
+         end if
+      else if (j == jstop) then
+         if (inc > 0) then ; iir = [(ii,ii=iistop,0,-inc)]
+                      else ; iir = [(ii,ii=iistop,l-1,-inc)]
          end if
       end if
    else
       iinew = iir(size(iir)) + inc
-      do 
-         if (iinew < l) exit
-         iinew = iinew - l
-         j = j + 1
+      do while (iinew >= l)
+         iinew = iinew - l ; j = j + 1
       end do
-      do 
-         if (iinew >= 0) exit
-         iinew = iinew + l
-         j = j - 1
+      do while (iinew < 0)
+         iinew = iinew + l ; j = j - 1
       end do
       if (j == jstop) then
          iir = [(ii,ii=iinew,iistop,inc)]
