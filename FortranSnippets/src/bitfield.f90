@@ -43,7 +43,7 @@
 ! call b%get(pos,bool)
 !     logical :: bool
 ! call b%get(bool)
-! call b%get(from,top,inc,bool)
+! call b%get(from,to,inc,bool)
 !     logical :: bool(:)
 !     integer :: pos, frompos, topos
 !     Note: bool(:) must be allocated beforehand
@@ -71,16 +71,16 @@
 !     Note: in the subroutine form, c must not be allocated beforehand
 !
 ! n = b%count() 
-! n = b%count(from,top) 
-!     integer :: from, to
+! n = b%count(from,top,inc) 
+!     integer :: from, to, inc
 !
 ! bool = b%all()            
 ! bool = b%all(from,to) 
-!     integer :: from, to
+!     integer :: from, to, inc
 !
 ! bool = b%any()           
 ! bool = b%any(from,to) 
-!     integer :: from, to
+!     integer :: from, to, inc
 !***********************************************************************************************
 module bitfield
 !use iso_fortran_env
