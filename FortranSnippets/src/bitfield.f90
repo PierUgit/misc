@@ -75,11 +75,11 @@
 !     integer :: from, to, inc
 !
 ! bool = b%all()            
-! bool = b%all(from,to) 
+! bool = b%all(from,to,inc) 
 !     integer :: from, to, inc
 !
 ! bool = b%any()           
-! bool = b%any(from,to) 
+! bool = b%any(from,to,inc) 
 !     integer :: from, to, inc
 !***********************************************************************************************
 module bitfield
@@ -92,8 +92,8 @@ public :: bitfield_t
 public :: assignment(=)
 
 integer, parameter :: l = bit_size(0)
-integer :: zeros, ones
-logical :: initialized = .false.
+integer, parameter :: zeros = 0
+integer, parameter :: ones = not(zeros)
 
 type :: bitfield_t
    private
@@ -155,15 +155,6 @@ end interface
 
 contains
 
-   subroutine init()
-   integer :: ii
-      zeros = 0
-      do ii = 0, l
-         zeros = ibclr(zeros,ii)
-      end do
-      ones = not(zeros)
-   end subroutine
-
    subroutine b_allocate1(this,n)
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: n
@@ -174,7 +165,6 @@ contains
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: lb, ub
    integer :: ii
-      if (.not.initialized) call init()
       if (allocated(this%a)) error stop "bitfield is already allocated"
       if (ub >= lb) then
          this%n = ub - lb + 1 
