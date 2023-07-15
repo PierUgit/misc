@@ -283,40 +283,26 @@ contains
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: istart, istop, inc
    logical, intent(in) :: v(:)
-   integer :: ii, j, i, iistart, iistop, jstart, jstop
+   integer :: k, j, i, iistart, iistop, jstart, jstop
+   integer, allocatable :: iir(:)
       if (.not.allocated(this%a)) error stop "b_setrange1: bitfield is not allocated"
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange1(): out of bound indeces" 
       call this%indeces(istart,jstart,iistart)
       call this%indeces(istop ,jstop ,iistop)
-      if (jstart == jstop) then
-         i = 0
-         do ii = iistart, iistop, inc
+
+      j = jstart
+      i = 0
+      do
+         call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
+         do k = 1, size(iir)
             i = i+1
-            if (v(i)) then ; this%a(jstart) = ibset(this%a(jstart),ii)
-                      else ; this%a(jstart) = ibclr(this%a(jstart),ii)
+            if (v(i)) then ; this%a(j) = ibset(this%a(j),iir(k))
+                      else ; this%a(j) = ibclr(this%a(j),iir(k))
             end if
          end do
-      else
-         ii = iistart
-         j = jstart
-         do i = 1, size(v)
-            if (v(i)) then ; this%a(j) = ibset(this%a(j),ii)
-                      else ; this%a(j) = ibclr(this%a(j),ii)
-            end if
-            ii = ii + inc
-            do 
-               if (ii < l) exit
-               ii = ii - l
-               j = j + 1
-            end do
-            do 
-               if (ii >= 0) exit
-               ii = ii + l
-               j = j - 1
-            end do
-         end do
-      endif
+         if (j == jstop) exit
+      end do
    end subroutine 
 
    subroutine assign_l2b_0(this,v)
@@ -365,15 +351,12 @@ contains
 
       j = jstart
       i1 = 1
-      call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
-      i2 = i1+size(iir)-1
-      v(i1:i2) = btest(this%a(j),iir)
       do
-         if (j == jstop) exit
-         i1 = i2+1
          call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
          i2 = i1+size(iir)-1
          v(i1:i2) = btest(this%a(j),iir)
+         if (j == jstop) exit
+         i1 = i2+1
       end do
    end subroutine 
          
@@ -413,7 +396,8 @@ contains
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: istart, istop, inc
    type(bitfield_t), intent(in) :: that
-   integer :: i, ii, iistart, iistop, jstart, jstop, j, jsource, iisource
+   integer :: k, i, iistart, iistop, jstart, jstop, j, jsource, iisource
+   integer, allocatable :: iir(:)
       if (that%getsize() <= 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_replace(): out of bound bounds" 
@@ -434,29 +418,21 @@ contains
          end if
       else
          j = jstart
-         ii = iistart
          jsource = 0
          iisource = 0
-         do i = istart, istop, inc
-            if (btest(that%a(jsource),iisource)) then ; this%a(j) = ibset(this%a(j),ii)
-                                                 else ; this%a(j) = ibclr(this%a(j),ii)
-            end if
-            ii = ii + inc
-            do 
-               if (ii < l) exit
-               ii = ii - l
-               j = j + 1
-            end do 
-            do
-               if (ii >= 0) exit
-               ii = ii + l
-               j = j - 1
+         do
+            call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
+            do k = 1, size(iir)
+               if (btest(that%a(jsource),iisource)) then ; this%a(j) = ibset(this%a(j),iir(k))
+                                                    else ; this%a(j) = ibclr(this%a(j),iir(k))
+               end if
+               iisource = iisource+1
+               if (iisource == l) then
+                  iisource = 0
+                  jsource = jsource+1
+               end if
             end do
-            iisource = iisource + 1
-            if (iisource == l) then
-               iisource = 0
-               jsource = jsource + 1
-            end if
+            if (j == jstop) exit
          end do
       end if
    end subroutine 
@@ -467,7 +443,8 @@ contains
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: istart, istop, inc
    type(bitfield_t), intent(inout) :: that
-   integer :: i, ii, iistart, iistop, jstart, jstop, j, jdest, iidest, n
+   integer :: k, i, iistart, iistop, jstart, jstop, j, jdest, iidest, n
+   integer, allocatable :: iir(:)
       if ((istop-istart)*inc < 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
          error stop "b_extract(): out of bound indeces" 
@@ -491,29 +468,21 @@ contains
          end if
       else
          j = jstart
-         ii = iistart
          jdest = 0
          iidest = 0
-         do i = istart, istop, inc
-            if (btest(j,ii)) then ; that%a(jdest) = ibset(that%a(jdest),iidest)
-                             else ; that%a(jdest) = ibclr(that%a(jdest),iidest)
-            end if
-            ii = ii + inc
-            do 
-               if (ii < l) exit
-               ii = ii - l
-               j = j + 1
-            end do 
-            do
-               if (ii >= 0) exit
-               ii = ii + l
-               j = j - 1
+         do
+            call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
+            do k = 1, size(iir)
+               if (btest(this%a(j),iir(k))) then ; that%a(jdest) = ibset(that%a(jdest),iidest)
+                                            else ; that%a(jdest) = ibclr(that%a(jdest),iidest)
+               end if
+               iidest = iidest+1
+               if (iidest == l) then
+                  iidest = 0
+                  jdest = jdest+1
+               end if
             end do
-            iidest = iidest + 1
-            if (iidest == l) then
-               iidest = 0
-               jdest = jdest + 1
-            end if
+            if (j == jstop) exit
          end do
       end if
    end subroutine 
