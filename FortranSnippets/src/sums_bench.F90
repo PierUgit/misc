@@ -25,6 +25,7 @@ integer, parameter :: P2MAX=30
 integer :: i, k, n, metatest, lu, lseed
 real :: ref
 character(len=96) :: string, stringsep, suffix, filename
+real(dp) :: provision(0:10000) 
 
 suffix = ""
 #ifdef FAST
@@ -32,6 +33,10 @@ suffix = "_fast"
 #endif
 
 call random_seed(size=lseed)
+call random_seed(put=[(0,i=1,lseed)])
+
+call random_number(provision)   ! some dirty trick to not break the repeatabilty
+
 call random_seed(put=[(0,i=1,lseed)])
 
 TIMES: BLOCK 
@@ -56,9 +61,10 @@ write(*,*) "* do loop with a real64 accumulator * do loop with a real128 accumul
 write(*,*) "* pairwise                          * pairwise with 10/100/1000 chunk length"
 write(*,*) "* Kahan                             * Kahan with 10/100/1000 chunk length"
 
-call random_number(a) 
+call random_number(a)
+
 !---------------------------
-METATESTS:do metatest = 1, 2
+METATESTS:do metatest = 1, 1
 !---------------------------
 
 if (metatest == 1) then
@@ -75,6 +81,23 @@ else if (metatest == 2) then
    write(*,*) stringsep; write(lu,*) stringsep
    a = a + 1.5   ! all values between 1.0 and 2.0
    ref = 1.5*n   ! expectation of the sum
+else if (metatest == 3) then
+   write(*,*) stringsep; write(lu,*) stringsep
+   write(string,*) "Numbers on unit circle"
+   write(*,*) string    ; write(lu,*) string
+   write(*,*) stringsep; write(lu,*) stringsep
+   BLOCK
+      integer  :: i
+      real(dp) :: da
+      da = provision(0); da = 1.0_dp + 0.2_dp * (da-0.5_dp)
+      a(1) = cos(0.0_dp)
+      !$OMP PARALLEL DO
+      do i = 1, N-1
+         a(i+1) = cos(i*da) - cos((i-1)*da)
+      end do
+      !$OMP END PARALLEL DO
+   END BLOCK
+   ref = 1.0   ! "expectation" of the sum
 end if
 
 write(string,101) "Sum", "error2", "time" 
@@ -207,7 +230,7 @@ real(sp) :: allsums(0:11)
 integer, parameter :: P2INC = 16
 real, allocatable :: allerrs(:,:,:)
 
-allocate( allerrs(11,0:P2MAX*P2INC,2) )
+allocate( allerrs(11,0:P2MAX*P2INC,3) )
 
 write(*,*) stringsep
 
@@ -220,7 +243,7 @@ do k = 0, P2MAX*P2INC
    allocate(a(n))
    call random_number(a)
    
-   METATESTS:do metatest = 1, 2
+   METATESTS:do metatest = 1, 3
 
       if (metatest == 1) then
          a = a - 0.5    ! all values between -0.5 and 0.5
@@ -228,6 +251,19 @@ do k = 0, P2MAX*P2INC
       else if (metatest == 2) then
          a = a + 1.5    ! all values between 1.0 and 2.0
          ref = 1.5*n
+      else if (metatest == 3) then
+         UNITCIRCLE: BLOCK
+            integer  :: i
+            real(dp) :: da
+            da = provision(k); da = 1.0_dp + 0.2_dp * (da-0.5_dp)
+            a(1) = cos(0.0_dp)
+            !$OMP PARALLEL DO
+            do i = 1, N-1
+               a(i+1) = cos(i*da) - cos((i-1)*da)
+            end do
+            !$OMP END PARALLEL DO
+         END BLOCK UNITCIRCLE
+         ref = 1.0
       end if
       !$OMP PARALLEL SECTIONS IF(n > 100000)
       !$OMP SECTION
@@ -265,7 +301,7 @@ end do
 
 filename = "../test/sums_bench_files/bench" // trim(suffix) // "_2.txt"
 open(newunit=lu,file=filename)
-do metatest = 1, 2
+do metatest = 1, 3
    do k = 0, P2MAX*P2INC
       n = nint(2**(k/P2INC) * 2d0**(mod(k,P2INC)/real(P2INC,kind=dp)))
       write(lu,*) metatest,n,allerrs(:,k,metatest)
