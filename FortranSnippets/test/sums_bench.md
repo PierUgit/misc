@@ -84,7 +84,7 @@ Benchmarks
 The values to sum are random numbers, with two different distributions:
 - **+/- distribution** : uniform distribution in the $\[-0.5 ; 0.5\[$ interval. The expectation of the sum is $0$ and consequently the condition number can raise to $+\infty$. Since the relative error $err2$ can be unstable in these conditions, we use the spacing at the expected standard deviation of the summation, which is $\sqrt{n/12}$ (*).
 - **+++ distribution** : uniform distribution in the $\[1.0 ; 2.0\[$ interval. The expectation of the sum is $1.5\*n$, and the condition number is always $1$.
-- **+0- distribution** : these are not really random numbers. The summation cycles along the unit circle, and we consider only the real part: $x_0=1.0$, $x_i=-2 sin(\frac{a}{2}) sin((i-\frac{1}{2})a)$, $\sum_{i=0}^k{x_i}=cos(k.a)$
+- **+0- distribution** : these are not really random numbers. The summation cycles along the unit circle, and we consider only the real part: $x_0=1.0$, $x_i=-2 sin(\frac{a}{2}) sin((i-\frac{1}{2})a)$, $\sum_{i=0}^N{x_i}=cos(N\:a)$. $a$ is a constant for the whole serie, which is randomly chosen in the $[0.9;1.1]$ interval. The sum is periodic in the $[-1 ; 1]$ interval, and the condition number has a lower bound that grows linearly with N: $c>\sqrt{2}sin(\frac{a}{2})N$ 
 
 The code ([here](../src/sums.f90) and [here](../src/sums_bench.F90)) is compiled either with:
 - `gfortran -O3 sums.f90 sums_bench.F90`
@@ -177,6 +177,19 @@ Looking now at the variants of **ksum** specifically:
 
 Note that there is no "good suprise" with **ksum**, in contrast to **psum**
 
+# "+0-" distribution
+
+First, the genuine versions of the methods:
+
+![figure 1.7](sums_bench_files/fig17.png "figure 1.7")
+
+Observations:
+- the relative errors are **much** higher than for the previous distributions (note the vertical scale up to $1000$ rather than $10$). About 2 significant digits are lost for $N=10^6$
+- all the curves are dominated by the condition number in $O(N)$, which results in exponential shapes given the horizontal logarithm axis
+- **ksum** does not perform significantly better than the straight summation, which is a bit surprising.
+- **psum** performs poorer or even much poorer than the straight summation. This may depend on the choice of the $a$ constant (this has not been investigated)
+- Again, **sumi** and **sum_sp** behave exactly the same.
+
 Accurracy benchmark with fast-math
 ----------------------------------
 
@@ -187,7 +200,7 @@ First a general result for the "+/-" distribution:
 ![figure 1.1bis](sums_bench_files/fig11_fast.png "figure 1.1bis")
 
 Observations:
-- The curves look overall similar to the non-fast versions, except for **ksum** that has now catastrophic errors, even poorer than the single precision straight summation. This is a known effect of fast-math style option, which defeat the compensation term in Kahan algorithm.
+- The curves look overall similar to the non-fast versions, except for **ksum** that has now catastrophic errors, even poorer than the single precision straight summation. This is a known effect of `fast-math` type options, which defeat the compensation term in the Kahan algorithm.
 
 Let's compare more precisely with or without fast-math on the same graph:
 
