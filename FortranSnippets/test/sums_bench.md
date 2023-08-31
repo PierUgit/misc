@@ -33,7 +33,7 @@ The tests are performed on a x86 machine (an old Core i5 2500K from 2011), with 
 Accuracy analysis
 -----------------
 
-In the litterature, we find that the maximum absolute error of the sum of $n$ elements, $S(n)=\sum_i{x_i}$ is bounded by $err0_max(n)=\frac{\epsilon f(n)}{1-\epsilon f(n)}\sum_i{|x_i|}$, where $\epsilon$ is the machine precision (about $10^{-7}$ for single precision), and $f(n)$ a function that depends on the summation method:
+In the litterature, we find that the maximum absolute error of the sum of $n$ elements, $S(n)=\sum_i{x_i}$ is bounded by $err0_{max}(n)=\frac{\epsilon f(n)}{1-\epsilon f(n)}\sum_i{|x_i|}$, where $\epsilon$ is the machine precision (about $10^{-7}$ for single precision), and $f(n)$ a function that depends on the summation method:
 |                  | $f(n)$            | Notes |
 |------------------|-------------------|-------|
 | straight         | $n$               | $\epsilon$ is the one of the accumulator |
@@ -84,6 +84,7 @@ Benchmarks
 The values to sum are random numbers, with two different distributions:
 - **+/- distribution** : uniform distribution in the $\[-0.5 ; 0.5\[$ interval. The expectation of the sum is $0$ and consequently the condition number can raise to $+\infty$. Since the relative error $err2$ can be unstable in these conditions, we use the spacing at the expected standard deviation of the summation, which is $\sqrt{n/12}$ (*).
 - **+++ distribution** : uniform distribution in the $\[1.0 ; 2.0\[$ interval. The expectation of the sum is $1.5\*n$, and the condition number is always $1$.
+- **+0- distribution** : these are not really random numbers. The summation cycles along the unit circle, and we consider only the real part: $x_0=1.0$, $x_i=-2 sin(\frac{a}{2}) sin((i-\frac{1}{2})a)$, $\sum_{i=0}^k{x_i}=cos(k.a)$
 
 The code ([here](../src/sums.f90) and [here](../src/sums_bench.F90)) is compiled either with:
 - `gfortran -O3 sums.f90 sums_bench.F90`
