@@ -35,9 +35,12 @@
 ! - selected_int_kind(r=18) otherwise
 !
 ! Note that the standard requires the compilers to provide an integer with a range >= 18
+!
+! For the logical type the module provides the kind lk_short, which is currently
+! the c_bool kind from the iso_c_binding module
 !***********************************************************************************************
 module mykinds
-use iso_fortran_env, only : int64
+use iso_c_binding, only : c_bool
 implicit none
 
 private
@@ -97,7 +100,7 @@ integer, parameter ::                                &
    rk_qp_prec  = precision(0.0_rk_qp),               &
    rk_qp_range = range(0.0_rk_qp)
 
-public :: rk_sp, rk_dp, rk_ep, rk_ddp, rk_qp
+public :: rk_sp, rk_dpw, rk_dp, rk_ep, rk_ddp, rk_qp
 public :: rk_dp_prec, rk_dp_range,   &
           rk_ep_prec, rk_ep_range,   &
           rk_ddp_prec, rk_ddp_range, &
@@ -112,7 +115,19 @@ integer, parameter :: ik_long___ = selected_int_kind(r=18)
 integer, parameter :: ik_long = merge(kind(0),ik_long___,is_int_least18)
 integer, parameter :: ik_long_range = range(0_ik_long)
 
-public :: ik_default, ik_long, ik_long_range
+! determining ik_verylong
+logical, parameter :: is_int_least18 = range(0) >= 36
+integer, parameter :: ik_verylong___ = selected_int_kind(r=36)
+integer, parameter :: ik_verylong = merge(ik_verylong___,ik_long,ik_verylong___>0)
+integer, parameter :: ik_verylong_range = range(0_ik_verylong)
+
+public :: ik_default, ik_long, ik_verylong, ik_long_range, ik_verylong_range
+
+
+integer, parameter :: lk_default = kind(.true.)
+integer, parameter :: lk_short   = c_bool
+
+public :: lk_default, lk_shortest
 
 end module
 
