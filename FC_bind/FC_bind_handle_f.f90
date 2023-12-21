@@ -1,11 +1,12 @@
 ! ===========================================
 ! file: FC_bind_handle_f.f90
+! ===========================================
 module somemodule
    use, intrinsic :: iso_c_binding
    implicit none
-    
-   ! c_float is needed only if one wants to 
-   ! access %a directly from C
+
+   ! c_int is needed only because one wants accessing the %a 
+   ! component from the C side
    type :: sometype
       integer(c_int), allocatable :: a(:)
    end type
@@ -23,7 +24,6 @@ end module
 ! ===========================================
 
 ! ===========================================
-! file: somemodule_wrap.f90 
 module somemodule_wrap
    use, intrinsic :: iso_c_binding
    use somemodule 
