@@ -17,9 +17,7 @@ int main(void)
     // define a "put" routine to avoid any access to %a from C
     int n;
     int* a = sometype_a_ptr(h, &n);
-    for (int i = 0; i < n; i++) {
-        a[i] = i;
-    }
+    for (int i = 0; i < n; i++) a[i] = i;
     
     // print the content of the instance
     for (int i = 0; i < n; i++) printf("%d  ",a[i]);
