@@ -2,7 +2,7 @@ name = "fmmap"
 version = "0.1.0"
 license = "license"
 author = "PierUgit"
-maintainer = "comptes@ugo235.fr"
+maintainer = "PierUgit"
 copyright = "Copyright 2024, PierUgit"
 [build]
 auto-executables = true
