@@ -74,6 +74,6 @@ call fmmap_destroy(pr)
 
 ## Limitations
 
-The current version is based on the availability of C Posix routines, and won't compile on Windows.
-
-Mapping to an array of a derived type containing allocatable or pointer components is not allowed. 
+- The The intrinsic type version of `ffmap_create()` and `ffmap_destroy()` are not thread-safe. 
+- The current version is based on the availability of C Posix routines, and won't compile on Windows.
+- Mapping to an array of a derived type containing allocatable or pointer components is not allowed. 
