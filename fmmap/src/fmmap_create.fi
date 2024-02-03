@@ -1,16 +1,16 @@
-   integer(fmmap_int), intent(in)           :: sh(:)
-   character(*),       intent(in)           :: filemode 
-   character(*),       intent(in), optional :: filename
-   integer(fmmap_int), intent(in), optional :: lbound(:)
+   integer(fmmap_size), intent(in)           :: sh(:)
+   integer,            intent(in)            :: filemode 
+   character(*),       intent(in), optional  :: filename
+   integer(fmmap_size), intent(in), optional :: lbound(:)
    
    integer, parameter :: ss = storage_size(p)
    type(fmmap_t) :: x
-   integer(fmmap_int) :: nbytes, n
-   integer(fmmap_int), allocatable :: sh___(:), lb(:), ub(:)
+   integer(fmmap_size) :: nbytes, n
+   integer(fmmap_size), allocatable :: sh___(:), lb(:), ub(:)
    !********************************************************************************************
    
    if (rank(p) < 1 .or. rank(p) > 7) error stop msg0//msg1
-   if (filemode == 'old') then
+   if (filemode == FMMAP_OLD) then
       if (size(sh) /= rank(p)-1) error stop msg0//msg2
    else
       if (size(sh) /= rank(p)  ) error stop msg0//msg2
@@ -19,14 +19,14 @@
       
    call fmmap_create(x,nbytes,filemode,filename)
 
-   if (filemode == "old") then
+   if (filemode == FMMAP_OLD) then
       n = fmmap_nelems(nbytes, ss )
       sh___ = [ sh, n / product(sh) ]
       if (sh___(rank(p)) * product(sh) /= n) error stop msg0//msg3 
    else
       sh___ = sh      
    end if
-   allocate( lb(rank(p)), source=1_fmmap_int )
+   allocate( lb(rank(p)), source=1_fmmap_size )
    if (present(lbound)) lb = lbound
    ub = lb + sh___ - 1
    

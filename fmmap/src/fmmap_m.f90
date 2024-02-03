@@ -6,10 +6,13 @@ use, intrinsic :: iso_fortran_env
 implicit none
 
    private
-   public :: fmmap_int, fmmap_t, fmmap_nbytes, fmmap_nelems
+   public :: fmmap_size, fmmap_bigint, fmmap_t, fmmap_nbytes, fmmap_nelems
    public :: fmmap_create, fmmap_destroy
+   public :: FMMAP_SCRATCH, FMMAP_OLD, FMMAP_NEW
 
-   integer, parameter :: fmmap_int = c_long_long
+   integer, parameter :: fmmap_size = c_long_long
+   integer, parameter :: fmmap_bigint = merge(int64,selected_int_kind(r=18),int64 > 0)
+   
    character(c_char) :: c
    integer, parameter :: bitsperbyte = storage_size(c)
    type fmmap_t
@@ -20,6 +23,10 @@ implicit none
    end type
    
    type(fmmap_t), allocatable :: table(:)
+   
+   integer, parameter :: FMMAP_SCRATCH = 1
+   integer, parameter :: FMMAP_OLD     = 2
+   integer, parameter :: FMMAP_NEW     = 3
    
    character(*), parameter :: msg0="*** fmmap_create(): "
    character(*), parameter :: msg1="the rank of must be 1 to 7"
@@ -49,33 +56,35 @@ implicit none
    interface fmmap_create
       module procedure fmmap_create_cptr
       module procedure fmmap_create_real,    fmmap_create_dp
+      module procedure fmmap_create_complex, fmmap_create_dc
       module procedure fmmap_create_integer, fmmap_create_di
    end interface
    
    interface fmmap_destroy
       module procedure fmmap_destroy_cptr
       module procedure fmmap_destroy_real,    fmmap_destroy_dp
+      module procedure fmmap_destroy_complex, fmmap_destroy_dc
       module procedure fmmap_destroy_integer, fmmap_destroy_di
    end interface
    
 contains
    
    !********************************************************************************************
-   integer(fmmap_int) function fmmap_nbytes(n,ss)
+   integer(fmmap_size) function fmmap_nbytes(n,ss)
    !********************************************************************************************
-   integer(fmmap_int), intent(in) :: n
+   integer(fmmap_size), intent(in) :: n
    integer,           intent(in) :: ss
    !********************************************************************************************
    fmmap_nbytes = n * (ss / bitsperbyte)
    end function fmmap_nbytes
    
    !********************************************************************************************
-   integer(fmmap_int) function fmmap_nelems(nbytes,ss)
+   integer(fmmap_size) function fmmap_nelems(nbytes,ss)
    !********************************************************************************************
-   integer(fmmap_int), intent(in) :: nbytes
+   integer(fmmap_size), intent(in) :: nbytes
    integer,           intent(in) :: ss
    
-   integer(fmmap_int) :: bytesperelem
+   integer(fmmap_size) :: bytesperelem
    !********************************************************************************************
    bytesperelem = ss / bitsperbyte
    fmmap_nelems = nbytes / bytesperelem
@@ -130,13 +139,14 @@ contains
    subroutine fmmap_create_cptr(x,n,filemode,filename)
    !********************************************************************************************
    type(fmmap_t),    intent(out)           :: x
-   integer(fmmap_int)                      :: n
-   character(*),     intent(in)            :: filemode 
+   integer(fmmap_size)                      :: n
+   integer,          intent(in)            :: filemode 
    character(*),     intent(in),  optional :: filename
    
    integer(c_int) :: cfm
    integer :: i, lu, stat
    character(:), allocatable :: filename___
+   character(kind=c_char,len=:), allocatable :: c_filename
    character(128) :: msg
    !********************************************************************************************
    
@@ -146,7 +156,7 @@ contains
    
    x%cptr = c_null_ptr
    
-   if (filemode == 'scratch') then
+   if (filemode == FMMAP_SCRATCH) then
       cfm = 1
       x%cn = n
       if (present(filename)) then
@@ -154,7 +164,7 @@ contains
       else 
          filename___ = "./fmmaptmp"
       end if
-   else if (filemode == 'old') then
+   else if (filemode == FMMAP_OLD) then
       cfm = 2
       filename___ = filename
       inquire(file=trim(filename___), size=x%cn)
@@ -162,7 +172,7 @@ contains
          error stop "*** fmmap_create_cptr: unable to get the file size"
       end if
       n = x%cn
-   else if (filemode == 'new') then
+   else if (filemode == FMMAP_NEW) then
       cfm = 3
       x%cn = n
       filename___ = filename
@@ -174,11 +184,12 @@ contains
       error stop "*** fmmap_create_cptr: wrong filemode"
    end if
    
-   stat = c_mmap_create( x%cptr                      &
-                       , x%cn                        &
-                       , cfm                         &
-                       , filename___ // c_null_char  &
-                       , x%cfd                       )
+   c_filename = filename___ // c_null_char
+   stat = c_mmap_create( x%cptr      &
+                       , x%cn        &
+                       , cfm         &
+                       , c_filename  &
+                       , x%cfd       )
    if (stat /= 0) then
       write(msg,*) "*** fmmap_create_cptr: error code ", stat
       error stop trim(msg)
@@ -237,6 +248,28 @@ contains
 
 
    !********************************************************************************************
+   subroutine fmmap_create_complex(p,sh,filemode,filename,lbound)
+   !********************************************************************************************
+   complex, pointer :: p(..)
+   complex, pointer :: q(:)
+
+   include "fmmap_create.fi"
+        
+   end subroutine fmmap_create_complex
+
+
+   !********************************************************************************************
+   subroutine fmmap_create_dc(p,sh,filemode,filename,lbound)
+   !********************************************************************************************
+   complex(kind=kind(0d0)), pointer :: p(..)
+   complex(kind=kind(0d0)), pointer :: q(:)
+
+   include "fmmap_create.fi"
+        
+   end subroutine fmmap_create_dc
+
+
+   !********************************************************************************************
    subroutine fmmap_create_integer(p,sh,filemode,filename,lbound)
    !********************************************************************************************
    integer, pointer :: p(..)
@@ -251,8 +284,8 @@ contains
    subroutine fmmap_create_di(p,sh,filemode,filename,lbound)
    !********************************************************************************************
    integer, parameter :: di = selected_int_kind(r=15)
-   integer(kind=di), pointer :: p(..)
-   integer(kind=di), pointer :: q(:)
+   integer(kind=fmmap_bigint), pointer :: p(..)
+   integer(kind=fmmap_bigint), pointer :: q(:)
 
    include "fmmap_create.fi"
         
@@ -286,6 +319,32 @@ contains
 
 
    !********************************************************************************************
+   subroutine fmmap_destroy_complex(p)
+   !********************************************************************************************
+   complex, pointer :: p(..)
+
+   type(fmmap_t) :: x
+   !********************************************************************************************  
+   call fmmap_table_pull(x,c_loc(p))
+   call fmmap_destroy_cptr(x)
+   
+   end subroutine fmmap_destroy_complex
+   
+
+   !********************************************************************************************
+   subroutine fmmap_destroy_dc(p)
+   !********************************************************************************************
+   complex(kind=kind(0d0)), pointer :: p(..)
+
+   type(fmmap_t) :: x
+   !********************************************************************************************  
+   call fmmap_table_pull(x,c_loc(p))
+   call fmmap_destroy_cptr(x)
+   
+   end subroutine fmmap_destroy_dc
+
+
+   !********************************************************************************************
    subroutine fmmap_destroy_integer(p)
    !********************************************************************************************
    integer, pointer :: p(..)
@@ -301,8 +360,7 @@ contains
    !********************************************************************************************
    subroutine fmmap_destroy_di(p)
    !********************************************************************************************
-   integer, parameter :: di = selected_int_kind(r=15)
-   integer(kind=di), pointer :: p(..)
+   integer(kind=fmmap_bigint), pointer :: p(..)
 
    type(fmmap_t) :: x
    !********************************************************************************************
