@@ -1,8 +1,22 @@
-   integer(fmmap_size), intent(in)           :: sh(:)
-   integer,            intent(in)            :: filemode 
-   character(*),       intent(in), optional  :: filename
+   integer(fmmap_size), intent(in)          :: sh(:) 
+      !! shape of the pointer
+      !! - FILE_SCRATCH and FILE_NEW
+      !!   - the size of `sh` must be equal to the rank of `p`
+      !! - FILE_OLD
+      !!   - the size of `sh` must be equal to the rank of `p` minus 1
+      !!   - the size of the last dimension of `p` is determined from the file size
+   integer,             intent(in)           :: filemode 
+      !! FILE_SCRATCH, FILE_OLD, or FILE_NEW
+   character(*),        intent(in), optional :: filename !! file name
+      !! FILE_OLD or FILE_new: required name of the file
+      !! FILE_SCRATCH: not required; if present:
+      !!  - a processor dependent unique suffix will be appended
+      !!  - can be a directory; in this case the trailing directory separator must be present,
+      !!    e.g. `"/tmp/"` rather than "`/tmp`"
    integer(fmmap_size), intent(in), optional :: lbound(:)
-   
+      !! lower bounds of the output pointer;
+      !! the size of `lbound` must be equal to the rank of `p`
+      
    integer, parameter :: ss = storage_size(p)
    type(fmmap_t) :: x
    integer(fmmap_size) :: nbytes, n

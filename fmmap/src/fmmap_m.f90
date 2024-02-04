@@ -15,11 +15,13 @@ implicit none
    
    character(c_char) :: c
    integer, parameter :: bitsperbyte = storage_size(c)
-   type fmmap_t
+   
+   type fmmap_t   ! descriptor
       private
-      type(c_ptr), public   :: cptr = c_null_ptr
-      integer(c_int)        :: cfd  = -1
-      integer(c_long_long)  :: cn   = 0
+      type(c_ptr), public :: cptr = c_null_ptr
+      integer(c_int)      :: cfd  = -1
+      integer(fmmap_size) :: cn   = 0
+      logical             :: used = .false.
    end type
    
    type(fmmap_t), allocatable :: table(:)
@@ -36,12 +38,12 @@ implicit none
    interface
    
       integer(c_int) function c_mmap_create( cp, n, cfm, cfilename, cfd ) BIND(C)
-         import :: c_ptr, c_int, c_long_long, c_bool
-         type(c_ptr),          intent(out)  :: cp
-         integer(c_long_long), value        :: n
-         character(len=1),     intent(in)   :: cfilename(*)
-         integer(c_int),       value        :: cfm
-         integer(c_int),       intent(out)  :: cfd
+         import :: c_ptr, c_int, c_long_long, c_char
+         type(c_ptr),                  intent(out) :: cp
+         integer(c_long_long),         value       :: n
+         character(kind=c_char,len=1), intent(in)  :: cfilename(*)
+         integer(c_int),               value       :: cfm
+         integer(c_int),               intent(out) :: cfd
       end function c_mmap_create
 
       integer(c_int) function c_mmap_destroy( cp, n, cfd ) BIND(C)
@@ -70,19 +72,25 @@ implicit none
 contains
    
    !********************************************************************************************
-   integer(fmmap_size) function fmmap_nbytes(n,ss)
+   function fmmap_nbytes(n,ss)
    !********************************************************************************************
-   integer(fmmap_size), intent(in) :: n
-   integer,           intent(in) :: ss
+   !! converts a number of elements to a number of bytes
+   !********************************************************************************************
+   integer(fmmap_size), intent(in) :: n   !! number of elements
+   integer,             intent(in) :: ss  !! storage size (in bits) of 1 element
+   integer(fmmap_size) :: fmmap_nbytes    !! number of bytes
    !********************************************************************************************
    fmmap_nbytes = n * (ss / bitsperbyte)
    end function fmmap_nbytes
    
    !********************************************************************************************
-   integer(fmmap_size) function fmmap_nelems(nbytes,ss)
+   function fmmap_nelems(nbytes,ss)
    !********************************************************************************************
-   integer(fmmap_size), intent(in) :: nbytes
-   integer,           intent(in) :: ss
+   !! converts a number of bytes into a number of elements
+   !********************************************************************************************
+   integer(fmmap_size), intent(in) :: nbytes !! number of nbytes
+   integer,             intent(in) :: ss     !! storage size (in bits) of 1 element
+   integer(fmmap_size) :: fmmap_nelems   !! number of elements
    
    integer(fmmap_size) :: bytesperelem
    !********************************************************************************************
@@ -96,88 +104,113 @@ contains
    !********************************************************************************************
    subroutine fmmap_table_push(x)
    !********************************************************************************************
+   ! Stores a descriptor into the internal table
+   !********************************************************************************************
    type(fmmap_t), intent(in) :: x
    
    integer :: i
    !********************************************************************************************
-   if (.not.allocated(table)) allocate(table(0))
-   i = 1
-   do while (i <= size(table))
-      if (c_associated( table(i)%cptr, c_null_ptr )) exit
-      i = i+1
-   end do
-   if (i <= size(table)) then
-      table(i) = x
+   if (.not.allocated(table)) then
+      table = [x]
    else
-      table = [ table, x ]
+      i = 1
+      do while (i <= size(table))
+         if (.not.c_associated(table(i)%cptr)) exit
+         i = i+1
+      end do
+      if (i <= size(table)) then ; table(i) = x
+                            else ; table = [ table, x ]
+      end if
    end if
    end subroutine fmmap_table_push
    
    !********************************************************************************************
    subroutine fmmap_table_pull(x,cptr)
    !********************************************************************************************
-   type(fmmap_t), intent(out) :: x
-   type(c_ptr),   intent(in)  :: cptr
+   ! Removes from the internal table the descriptor that matches the given pointer
+   !********************************************************************************************
+   type(fmmap_t), intent(out) :: x   ! descriptor
+   type(c_ptr),   intent(in)  :: cptr   ! pointer to search in the table
    
    integer :: i
    !********************************************************************************************
    i = 1
    do while (i <= size(table))
-      if (c_associated( table(i)%cptr, cptr )) exit
+      if (c_associated(table(i)%cptr,cptr)) exit
       i = i+1
    end do
-   if (i > size(table)) then
+   if (i >size(table)) then
       error stop "*** fmmap_destroy(): pointer not found in the internal table"
    end if
    x = table(i)
    table(i)%cptr = c_null_ptr
+   
+   if (i == size(table)) then
+      i = size(table) - 1
+      do while (i > 0)
+         if (c_associated(table(i)%cptr)) exit
+         i = i-1
+      end do
+      if (i == 0) then ; deallocate( table )
+                  else ; table = table(1:i)
+      end if
+   end if
    end subroutine fmmap_table_pull
    
    
 
    !********************************************************************************************
-   subroutine fmmap_create_cptr(x,n,filemode,filename)
+   subroutine fmmap_create_cptr(x,nbytes,filemode,filename)
    !********************************************************************************************
-   type(fmmap_t),    intent(out)           :: x
-   integer(fmmap_size)                      :: n
-   integer,          intent(in)            :: filemode 
-   character(*),     intent(in),  optional :: filename
+   !! Creates a "generic" mapping.
+   !! On return, `x%cptr` contains a `type(c_ptr)` pointer to the mapped file
+   !********************************************************************************************
+   type(fmmap_t),    intent(out)           :: x   !! descriptor
+   integer(fmmap_size)                     :: nbytes 
+      !! input requested size (for filemode 1 or 3), 
+      !! or output size of existing file (for filemode 2)
+   integer,          intent(in)            :: filemode !! FILE_SCRATCH, FILE_OLD, or FILE_NEW
+   character(*),     intent(in),  optional :: filename 
+     !! FILE_OLD or FILE_new: required name of the file
+     !! FILE_SCRATCH: not required; if present:
+     !!  - a processor dependent unique suffix will be appended
+     !!  - can be a directory; in this case the trailing directory separator must be present,
+     !!    e.g. `"/tmp/"` rather than "`/tmp`"
    
-   integer(c_int) :: cfm
+   integer(c_int) :: c_fm
    integer :: i, lu, stat
    character(:), allocatable :: filename___
    character(kind=c_char,len=:), allocatable :: c_filename
    character(128) :: msg
    !********************************************************************************************
    
-   if (storage_size(0_c_int)/file_storage_size /= c_sizeof(0_c_int)) then
-      error stop "*** fmmap_init: the file storage unit is not a byte"
-   end if 
+   BLOCK
+      character(kind=c_char,len=1) :: c
+      if (file_storage_size /= storage_size(c)) then
+         error stop "*** fmmap_init: the file storage unit is not a byte"
+      end if
+   END BLOCK 
    
    x%cptr = c_null_ptr
    
    if (filemode == FMMAP_SCRATCH) then
-      cfm = 1
-      x%cn = n
+      x%cn = nbytes
       if (present(filename)) then
          filename___ = trim(filename)//"fmmaptmp"
       else 
          filename___ = "./fmmaptmp"
       end if
    else if (filemode == FMMAP_OLD) then
-      cfm = 2
       filename___ = filename
       inquire(file=trim(filename___), size=x%cn)
       if (x%cn < 0) then
          error stop "*** fmmap_create_cptr: unable to get the file size"
       end if
-      n = x%cn
+      nbytes = x%cn
    else if (filemode == FMMAP_NEW) then
-      cfm = 3
-      x%cn = n
+      x%cn = nbytes
       filename___ = filename
       open(newunit=lu,file=filename___,status='new',form='unformatted',access='stream')
-      !if (lu < 0) return ! apparently lu can be <0 ??
       write(lu,pos=x%cn) c_null_char
       close(lu)
    else
@@ -185,9 +218,10 @@ contains
    end if
    
    c_filename = filename___ // c_null_char
+   c_fm = filemode
    stat = c_mmap_create( x%cptr      &
                        , x%cn        &
-                       , cfm         &
+                       , c_fm         &
                        , c_filename  &
                        , x%cfd       )
    if (stat /= 0) then
@@ -201,7 +235,10 @@ contains
    !********************************************************************************************
    subroutine fmmap_destroy_cptr(x)
    !********************************************************************************************
-   type(fmmap_t), intent(inout) :: x
+   !! Destroys a generic mapping (the file is unmapped and closed, and `x%cptr` is set to
+   !! `c_null_ptr`
+   !********************************************************************************************
+   type(fmmap_t), intent(inout) :: x   !! descriptor
    
    integer :: i, stat
    character(128) :: msg
@@ -222,13 +259,12 @@ contains
    end subroutine fmmap_destroy_cptr
    
    
-   
-   
-   
    !********************************************************************************************
    subroutine fmmap_create_real(p,sh,filemode,filename,lbound)
    !********************************************************************************************
-   real, pointer :: p(..)
+   !! Creates a mapping to a `real` pointer `p`
+   !********************************************************************************************
+   real, pointer :: p(..)   ! on output, `p` points to the mapped file
    real, pointer :: q(:)
 
    include "fmmap_create.fi"
@@ -239,7 +275,9 @@ contains
    !********************************************************************************************
    subroutine fmmap_create_dp(p,sh,filemode,filename,lbound)
    !********************************************************************************************
-   double precision, pointer :: p(..)
+   !! Creates a mapping to a `double precision` pointer `p`
+   !********************************************************************************************
+   double precision, pointer :: p(..)   ! on output, `p` points to the mapped file
    double precision, pointer :: q(:)
 
    include "fmmap_create.fi"
@@ -250,7 +288,9 @@ contains
    !********************************************************************************************
    subroutine fmmap_create_complex(p,sh,filemode,filename,lbound)
    !********************************************************************************************
-   complex, pointer :: p(..)
+   !! Creates a mapping to a `complex` pointer `p`
+   !********************************************************************************************
+   complex, pointer :: p(..)   ! on output, `p` points to the mapped file
    complex, pointer :: q(:)
 
    include "fmmap_create.fi"
@@ -261,7 +301,9 @@ contains
    !********************************************************************************************
    subroutine fmmap_create_dc(p,sh,filemode,filename,lbound)
    !********************************************************************************************
-   complex(kind=kind(0d0)), pointer :: p(..)
+   !! Creates a mapping to a `double complex` pointer `p`
+   !********************************************************************************************
+   complex(kind=kind(0d0)), pointer :: p(..)   ! on output, `p` points to the mapped file
    complex(kind=kind(0d0)), pointer :: q(:)
 
    include "fmmap_create.fi"
@@ -272,7 +314,9 @@ contains
    !********************************************************************************************
    subroutine fmmap_create_integer(p,sh,filemode,filename,lbound)
    !********************************************************************************************
-   integer, pointer :: p(..)
+   !! Creates a mapping to a `integer` pointer `p`
+   !********************************************************************************************
+   integer, pointer :: p(..)   ! on output, `p` points to the mapped file
    integer, pointer :: q(:)
 
    include "fmmap_create.fi"
@@ -283,8 +327,9 @@ contains
    !********************************************************************************************
    subroutine fmmap_create_di(p,sh,filemode,filename,lbound)
    !********************************************************************************************
-   integer, parameter :: di = selected_int_kind(r=15)
-   integer(kind=fmmap_bigint), pointer :: p(..)
+   !! Creates a mapping to a `integer(kind=fmmap_bigint)` pointer `p`
+   !********************************************************************************************
+   integer(kind=fmmap_bigint), pointer :: p(..)   ! on output, `p` points to the mapped file
    integer(kind=fmmap_bigint), pointer :: q(:)
 
    include "fmmap_create.fi"
@@ -295,12 +340,16 @@ contains
    !********************************************************************************************
    subroutine fmmap_destroy_real(p)
    !********************************************************************************************
-   real, pointer :: p(..)
+   !! Destroys a mapping to a `real` pointer
+   !! (the file is unmapped and closed, and the pointer is nullified)
+   !********************************************************************************************
+   real, pointer :: p(..)   ! the pointer associated to the mapping to destroy
 
    type(fmmap_t) :: x
    !********************************************************************************************  
    call fmmap_table_pull(x,c_loc(p))
    call fmmap_destroy_cptr(x)
+   !p => null()
    
    end subroutine fmmap_destroy_real
    
@@ -308,12 +357,16 @@ contains
    !********************************************************************************************
    subroutine fmmap_destroy_dp(p)
    !********************************************************************************************
-   double precision, pointer :: p(..)
+   !! Destroys a mapping to a `double precision` pointer
+   !! (the file is unmapped and closed, and the pointer is nullified)
+   !********************************************************************************************
+   double precision, pointer :: p(..)   ! the pointer associated to the mapping to destroy
 
    type(fmmap_t) :: x
    !********************************************************************************************  
    call fmmap_table_pull(x,c_loc(p))
    call fmmap_destroy_cptr(x)
+   !p => null()
    
    end subroutine fmmap_destroy_dp
 
@@ -321,12 +374,16 @@ contains
    !********************************************************************************************
    subroutine fmmap_destroy_complex(p)
    !********************************************************************************************
-   complex, pointer :: p(..)
+   !! Destroys a mapping to a `complex` pointer
+   !! (the file is unmapped and closed, and the pointer is nullified)
+   !********************************************************************************************
+   complex, pointer :: p(..)   ! the pointer associated to the mapping to destroy
 
    type(fmmap_t) :: x
    !********************************************************************************************  
    call fmmap_table_pull(x,c_loc(p))
    call fmmap_destroy_cptr(x)
+   !p => null()
    
    end subroutine fmmap_destroy_complex
    
@@ -334,12 +391,16 @@ contains
    !********************************************************************************************
    subroutine fmmap_destroy_dc(p)
    !********************************************************************************************
-   complex(kind=kind(0d0)), pointer :: p(..)
+   !! Destroys a mapping to a `double complex` pointer
+   !! (the file is unmapped and closed, and the pointer is nullified)
+   !********************************************************************************************
+   complex(kind=kind(0d0)), pointer :: p(..)   ! the pointer associated to the mapping to destroy
 
    type(fmmap_t) :: x
    !********************************************************************************************  
    call fmmap_table_pull(x,c_loc(p))
    call fmmap_destroy_cptr(x)
+   !p => null()
    
    end subroutine fmmap_destroy_dc
 
@@ -347,12 +408,16 @@ contains
    !********************************************************************************************
    subroutine fmmap_destroy_integer(p)
    !********************************************************************************************
-   integer, pointer :: p(..)
+   !! Destroys a mapping to a `integer` pointer
+   !! (the file is unmapped and closed, and the pointer is nullified)
+   !********************************************************************************************
+   integer, pointer :: p(..)   ! the pointer associated to the mapping to destroy
 
    type(fmmap_t) :: x
    !********************************************************************************************
    call fmmap_table_pull(x,c_loc(p))
    call fmmap_destroy_cptr(x)
+   !p => null()
    
    end subroutine fmmap_destroy_integer
    
@@ -360,12 +425,16 @@ contains
    !********************************************************************************************
    subroutine fmmap_destroy_di(p)
    !********************************************************************************************
-   integer(kind=fmmap_bigint), pointer :: p(..)
+   !! Destroys a mapping to a `integer(kind=fmmap_bigint)` pointer
+   !! (the file is unmapped and closed, and the pointer is nullified)
+   !********************************************************************************************
+   integer(kind=fmmap_bigint), pointer :: p(..)   ! the pointer associated to the mapping to destroy
 
    type(fmmap_t) :: x
    !********************************************************************************************
    call fmmap_table_pull(x,c_loc(p))
    call fmmap_destroy_cptr(x)
+   !p => null()
    
    end subroutine fmmap_destroy_di
    

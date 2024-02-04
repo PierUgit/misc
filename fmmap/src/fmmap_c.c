@@ -24,7 +24,11 @@ error codes:
   12: the file could not be closed
 */
        
-int c_mmap_create(void** ptr, long long n, int filemode, char* filename, int* fd) {
+int c_mmap_create( void** ptr           
+                 , const long long n    
+                 , const int filemode   
+                 , const char* filename 
+                 , int* fd ) {
 
     int stat;
     if (filemode == 1) {
@@ -38,16 +42,20 @@ int c_mmap_create(void** ptr, long long n, int filemode, char* filename, int* fd
         *fd = open(filename,O_RDWR);
         if (*fd < 0) return 2;
     }
-    // Map the file into memory as a double array
-    *ptr = mmap ( NULL, (size_t)n,
-                  PROT_READ | PROT_WRITE,
-                  MAP_SHARED | MAP_NORESERVE, //| MAP_POPULATE,
-                  *fd, 0 );
+    // Map the file into memory
+    *ptr = mmap ( NULL                        
+                , (size_t)n                  
+                , PROT_READ | PROT_WRITE      
+                , MAP_SHARED | MAP_NORESERVE  
+                , *fd                         
+                , 0 );
     if (ptr == MAP_FAILED) return 5;
     return 0;
 }
 
-int c_mmap_destroy(void* ptr, long long n, int fd) {
+int c_mmap_destroy( void* ptr
+                  , const long long n
+                  , int fd ) {
 
     int stat = munmap(ptr, (size_t)n);
     if (stat != 0) return 11;
