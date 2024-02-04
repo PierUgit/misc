@@ -10,7 +10,11 @@ implicit none
    public :: fmmap_create, fmmap_destroy
    public :: FMMAP_SCRATCH, FMMAP_OLD, FMMAP_NEW
 
+   !> integer kind used for the sizes and and number of bytes or elements
    integer, parameter :: fmmap_size = c_long_long
+   
+   !> integer kind of at least 18 digits range for pointers in fmmap_create and fmmap_destroy
+   !> mapped to int64 if defined
    integer, parameter :: fmmap_bigint = merge(int64,selected_int_kind(r=18),int64 > 0)
    
    character(c_char) :: c
@@ -26,6 +30,7 @@ implicit none
    
    type(fmmap_t), allocatable :: table(:)
    
+   !> predefined values for the `filemode` argument
    integer, parameter :: FMMAP_SCRATCH = 1
    integer, parameter :: FMMAP_OLD     = 2
    integer, parameter :: FMMAP_NEW     = 3
@@ -55,6 +60,8 @@ implicit none
       
    end interface
    
+   !> Generic routine name that creates either a generic mapping to a C pointer or a mapping
+   !> to array pointers of some selected intrinsic types/kinds.
    interface fmmap_create
       module procedure fmmap_create_cptr
       module procedure fmmap_create_real,    fmmap_create_dp
@@ -62,6 +69,7 @@ implicit none
       module procedure fmmap_create_integer, fmmap_create_di
    end interface
    
+   !> Generic routine name that destroys an existing mapping
    interface fmmap_destroy
       module procedure fmmap_destroy_cptr
       module procedure fmmap_destroy_real,    fmmap_destroy_dp
@@ -101,69 +109,11 @@ contains
    end if
    end function fmmap_nelems
    
-   !********************************************************************************************
-   subroutine fmmap_table_push(x)
-   !********************************************************************************************
-   ! Stores a descriptor into the internal table
-   !********************************************************************************************
-   type(fmmap_t), intent(in) :: x
-   
-   integer :: i
-   !********************************************************************************************
-   if (.not.allocated(table)) then
-      table = [x]
-   else
-      i = 1
-      do while (i <= size(table))
-         if (.not.c_associated(table(i)%cptr)) exit
-         i = i+1
-      end do
-      if (i <= size(table)) then ; table(i) = x
-                            else ; table = [ table, x ]
-      end if
-   end if
-   end subroutine fmmap_table_push
-   
-   !********************************************************************************************
-   subroutine fmmap_table_pull(x,cptr)
-   !********************************************************************************************
-   ! Removes from the internal table the descriptor that matches the given pointer
-   !********************************************************************************************
-   type(fmmap_t), intent(out) :: x   ! descriptor
-   type(c_ptr),   intent(in)  :: cptr   ! pointer to search in the table
-   
-   integer :: i
-   !********************************************************************************************
-   i = 1
-   do while (i <= size(table))
-      if (c_associated(table(i)%cptr,cptr)) exit
-      i = i+1
-   end do
-   if (i >size(table)) then
-      error stop "*** fmmap_destroy(): pointer not found in the internal table"
-   end if
-   x = table(i)
-   table(i)%cptr = c_null_ptr
-   
-   if (i == size(table)) then
-      i = size(table) - 1
-      do while (i > 0)
-         if (c_associated(table(i)%cptr)) exit
-         i = i-1
-      end do
-      if (i == 0) then ; deallocate( table )
-                  else ; table = table(1:i)
-      end if
-   end if
-   end subroutine fmmap_table_pull
-   
-   
 
    !********************************************************************************************
    subroutine fmmap_create_cptr(x,nbytes,filemode,filename)
    !********************************************************************************************
-   !! Creates a "generic" mapping.
-   !! On return, `x%cptr` contains a `type(c_ptr)` pointer to the mapped file
+   !! Creates a "generic" mapping to a C pointer, stored in `x%cptr
    !********************************************************************************************
    type(fmmap_t),    intent(out)           :: x   !! descriptor
    integer(fmmap_size)                     :: nbytes 
@@ -184,12 +134,9 @@ contains
    character(128) :: msg
    !********************************************************************************************
    
-   BLOCK
-      character(kind=c_char,len=1) :: c
-      if (file_storage_size /= storage_size(c)) then
-         error stop "*** fmmap_init: the file storage unit is not a byte"
-      end if
-   END BLOCK 
+   if (file_storage_size /= bitsperbyte) then
+      error stop "*** fmmap_init: the file storage unit is not a byte"
+   end if
    
    x%cptr = c_null_ptr
    
@@ -235,8 +182,8 @@ contains
    !********************************************************************************************
    subroutine fmmap_destroy_cptr(x)
    !********************************************************************************************
-   !! Destroys a generic mapping (the file is unmapped and closed, and `x%cptr` is set to
-   !! `c_null_ptr`
+   !! Destroys a generic mapping 
+   !! (the file is unmapped and closed, and `x%cptr` is set to `c_null_ptr`)
    !********************************************************************************************
    type(fmmap_t), intent(inout) :: x   !! descriptor
    
@@ -345,11 +292,7 @@ contains
    !********************************************************************************************
    real, pointer :: p(..)   ! the pointer associated to the mapping to destroy
 
-   type(fmmap_t) :: x
-   !********************************************************************************************  
-   call fmmap_table_pull(x,c_loc(p))
-   call fmmap_destroy_cptr(x)
-   !p => null()
+   include "fmmap_destroy.fi"
    
    end subroutine fmmap_destroy_real
    
@@ -362,11 +305,7 @@ contains
    !********************************************************************************************
    double precision, pointer :: p(..)   ! the pointer associated to the mapping to destroy
 
-   type(fmmap_t) :: x
-   !********************************************************************************************  
-   call fmmap_table_pull(x,c_loc(p))
-   call fmmap_destroy_cptr(x)
-   !p => null()
+   include "fmmap_destroy.fi"
    
    end subroutine fmmap_destroy_dp
 
@@ -379,11 +318,7 @@ contains
    !********************************************************************************************
    complex, pointer :: p(..)   ! the pointer associated to the mapping to destroy
 
-   type(fmmap_t) :: x
-   !********************************************************************************************  
-   call fmmap_table_pull(x,c_loc(p))
-   call fmmap_destroy_cptr(x)
-   !p => null()
+   include "fmmap_destroy.fi"
    
    end subroutine fmmap_destroy_complex
    
@@ -396,11 +331,7 @@ contains
    !********************************************************************************************
    complex(kind=kind(0d0)), pointer :: p(..)   ! the pointer associated to the mapping to destroy
 
-   type(fmmap_t) :: x
-   !********************************************************************************************  
-   call fmmap_table_pull(x,c_loc(p))
-   call fmmap_destroy_cptr(x)
-   !p => null()
+   include "fmmap_destroy.fi"
    
    end subroutine fmmap_destroy_dc
 
@@ -430,13 +361,66 @@ contains
    !********************************************************************************************
    integer(kind=fmmap_bigint), pointer :: p(..)   ! the pointer associated to the mapping to destroy
 
-   type(fmmap_t) :: x
-   !********************************************************************************************
-   call fmmap_table_pull(x,c_loc(p))
-   call fmmap_destroy_cptr(x)
-   !p => null()
+   include "fmmap_destroy.fi"
    
    end subroutine fmmap_destroy_di
+   
+   
+   !********************************************************************************************
+   subroutine fmmap_table_push(x)
+   !********************************************************************************************
+   ! Stores a descriptor into the internal table
+   !********************************************************************************************
+   type(fmmap_t), intent(in) :: x
+   
+   integer :: i
+   !********************************************************************************************
+   if (.not.allocated(table)) then
+      table = [x]
+   else
+      i = 1
+      do while (i <= size(table))
+         if (.not.c_associated(table(i)%cptr)) exit
+         i = i+1
+      end do
+      if (i <= size(table)) then ; table(i) = x
+                            else ; table = [ table, x ]
+      end if
+   end if
+   end subroutine fmmap_table_push
+   
+   !********************************************************************************************
+   subroutine fmmap_table_pull(x,cptr)
+   !********************************************************************************************
+   ! Removes from the internal table the descriptor that matches the given pointer
+   !********************************************************************************************
+   type(fmmap_t), intent(out) :: x   ! descriptor
+   type(c_ptr),   intent(in)  :: cptr   ! pointer to search in the table
+   
+   integer :: i
+   !********************************************************************************************
+   i = 1
+   do while (i <= size(table))
+      if (c_associated(table(i)%cptr,cptr)) exit
+      i = i+1
+   end do
+   if (i >size(table)) then
+      error stop "*** fmmap_destroy(): pointer not found in the internal table"
+   end if
+   x = table(i)
+   table(i)%cptr = c_null_ptr
+   
+   if (i == size(table)) then
+      i = size(table) - 1
+      do while (i > 0)
+         if (c_associated(table(i)%cptr)) exit
+         i = i-1
+      end do
+      if (i == 0) then ; deallocate( table )
+                  else ; table = table(1:i)
+      end if
+   end if
+   end subroutine fmmap_table_pull
    
 
 end module fmmap_m
