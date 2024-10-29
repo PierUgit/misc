@@ -291,7 +291,7 @@ CONTAINS
    if (pivot___ == 'm') pivot___ = 'M'
    if (pivot___ == 't') pivot___ = 'T'
    if (index('CRMT',pivot___) == 0) error stop "quicksort: wrong pivot method"      
-   call quicksort___(a,pivot=pivot,select=k)
+   call quicksort___(a,pivot=pivot___,select=k)
    quickselect = a(k)
    end function quickselect
 
