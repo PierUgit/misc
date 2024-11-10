@@ -117,6 +117,7 @@ implicit none
       rk_quad_prec  = precision(0.0_rk_quad),               &
       rk_quad_range = range(0.0_rk_quad)
 
+   public :: rk_default, rk_doubleprecision
    public :: rk_single, rk_weakdouble, rk_double, rk_extended, rk_doubledouble, rk_quad
    public :: rk_double_prec, rk_double_range,   &
              rk_extended_prec, rk_extended_range,   &
