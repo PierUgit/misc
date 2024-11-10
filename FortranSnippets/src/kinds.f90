@@ -44,12 +44,12 @@
 !   - selected_int_kind(r=36) is it exists
 !   - ik_long otherwise
 !
+! Note that the standard requires the compilers to provide an integer with a range >= 18
+!
 ! It also provides alternatives to the kinds int32 and int64, the difference being that
 ! these kinds have likely *at least* (instead of exactly) 32 or 64 bits
 ! - ik_sortof32
 ! - ik_sortof64
-!
-! Note that the standard requires the compilers to provide an integer with a range >= 18
 !
 ! For the logical type the module provides the kinds
 ! - lk_default (the default kind)
