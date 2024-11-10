@@ -56,7 +56,7 @@
 ! - lk_short, which is currently the c_bool kind from the iso_c_binding module
 ! - lk_shortest (not yet)
 !***********************************************************************************************
-module mykinds
+module tortuous_kinds
 use iso_c_binding, only : c_bool
 implicit none
 
@@ -156,5 +156,5 @@ integer, parameter :: lk_short   = c_bool
 
 public :: lk_default, lk_short
 
-end module
+end module tortuous_kinds
 
