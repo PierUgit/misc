@@ -21,6 +21,7 @@
 ! ## REAL kind constants
 ! - r_default : the default real (kind(1.0))
 ! - r_doubleprecision : the "double precision" real (kind(1d0))
+! - r_half         (half precision):          precision >= 3,  range >= 5     
 ! - r_single       (single precision):        precision >= 6,  range >= 37    **
 ! - r_sesqui       (1.5x precision):          precision >= 10, range >= 37    **
 ! - r_double       (double precision):        precision >= 12, range >= 100   * x
@@ -67,7 +68,8 @@ implicit none
 
    private
 
-   integer, parameter ::  sp_pmin = 6,   sp_rmin = 37,   &
+   integer, parameter ::  hp_pmin = 3,   hp_rmin = 4,    &
+                          sp_pmin = 6,   sp_rmin = 37,   &
                          sep_pmin = 10, sep_rmin = 37,   &
                           dp_pmin = 12,  dp_rmin = 100,  &
                           ep_pmin = 18,  ep_rmin = 100,  &
@@ -76,6 +78,9 @@ implicit none
 
    integer, parameter :: r_default = kind(0.0), &
                          r_doubleprecision = kind(0d0)
+
+   ! determining r_half
+   integer, parameter :: r_half = selected_real_kind(p=hp_pmin,r=hp_rmin)
 
    ! determining r_single
    logical, parameter :: &
@@ -114,7 +119,7 @@ implicit none
       r_quad  = merge(qp___,r_doubledouble,qp___>0)
 
    public :: r_default, r_doubleprecision
-   public :: r_single, r_sesqui, r_double, r_extended, r_doubledouble, r_quad
+   public :: r_half, r_single, r_sesqui, r_double, r_extended, r_doubledouble, r_quad
 
 
 
