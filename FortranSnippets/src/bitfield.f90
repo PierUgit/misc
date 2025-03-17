@@ -88,7 +88,7 @@ implicit none
 
 private
 
-public :: bitfield_t, bitfield_is_usable
+public :: bitfield_t, bitfield_check
 public :: assignment(=)
 
 integer, parameter :: l = bit_size(0)
@@ -154,9 +154,13 @@ end interface
 
 contains
 
-   logical function bitfield_is_usable()
+   logical function bitfield_check() result(stat)
    integer :: ii
-      bitfield_is_usable = .not.any(btest(zeros,[(ii,ii=0,l-1)]))
+      stat = .true.
+      do ii = 0, l-1
+         stat = stat .and. btest( ones, ii )
+      end do
+      stat = stat .and. shiftr(101,1) == 50 .and. shiftl(101,1) == 202
    end function
    
    pure subroutine b_allocate1(this,n)

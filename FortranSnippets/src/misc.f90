@@ -32,6 +32,8 @@ type(bitfield_t) :: b
 real, pointer :: a1(:,:), a2(:,:)
 !***********************************************************************************************
 
+if (.not.bitfield_check()) error stop "bitfield_check() failed"
+
 ! trivial square matrix case
 if (n == m) then
    a1(1:n,1:m) => a
