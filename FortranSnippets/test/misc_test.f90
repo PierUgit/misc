@@ -13,6 +13,8 @@ type(bitfield_t) :: bi, ci, di
 logical, allocatable :: li(:)
 double precision :: tic, toc
 
+if (.not.bitfield_is_usable()) error stop "bitfield is not usable"
+
 write(*,"(A)",advance="no") "bitfield tests 1..."
 
 li = [.true., .false., .true.]

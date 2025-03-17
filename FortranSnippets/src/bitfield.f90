@@ -88,10 +88,11 @@ implicit none
 
 private
 
-public :: bitfield_t
+public :: bitfield_t, bitfield_is_usable
 public :: assignment(=)
 
 integer, parameter :: l = bit_size(0)
+integer, parameter :: l2l = nint(log(real(l))/log(2.0))
 integer, parameter :: zeros = 0
 integer, parameter :: ones = not(zeros)
 
@@ -153,6 +154,11 @@ end interface
 
 contains
 
+   logical function bitfield_is_usable()
+   integer :: ii
+      bitfield_is_usable = .not.any(btest(zeros,[(ii,ii=0,l-1)]))
+   end function
+   
    pure subroutine b_allocate1(this,n)
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: n
@@ -616,7 +622,6 @@ contains
    type(bitfield_t), intent(in) :: this
    integer, intent(in) :: i
    integer, intent(out) :: j, ii
-   integer, parameter :: l2l = nint(log(real(l))/log(2.0))
       ii = i-this%lb
       !j = ii/l ; ii = ii - j*l
       ! Speed-up of about 15% on random accesses if shiftr() and shiftl() are used,
