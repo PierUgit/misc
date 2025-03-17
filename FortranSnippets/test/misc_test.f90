@@ -1,14 +1,17 @@
 program misc_test
 use bitfield
 use misc
+!$ use omp_lib
 implicit none
 
 
 bitfield: BLOCK
 
-real :: time
+real :: time, x
+integer :: i, n
 type(bitfield_t) :: bi, ci, di
 logical, allocatable :: li(:)
+double precision :: tic, toc
 
 write(*,"(A)",advance="no") "bitfield tests 1..."
 
@@ -42,17 +45,40 @@ if (bi%count(0,60,1) /= 11) error stop "b"
 call bi%deallocate()
 call ci%extract(5,15,1,di)
 if (any(di%fget() .neqv. li(6:16))) error stop "c"
+call ci%deallocate()
+call di%deallocate()
 
 write(*,*) "PASSED"
 
 write(*,"(A)",advance="no") "bitfield tests 4..."
 
+call tictoc()
 call bi%allocate(10**9)
 call bi%set(1,123456789,1,.true.)
 call bi%set(123456790,10**9,1,.false.)
 if (bi%count() /= 123456789) error stop
+!call bi%deallocate()
+call tictoc(time)
 
-write(*,*) "PASSED"
+write(*,*) "PASSED (", time, "sec.)"
+
+write(*,"(A)",advance="no") "bitfield tests 5..."
+
+call tictoc()
+!call bi%allocate(10**9)
+call bi%set(1,123456789,1,.false.)
+n = 0
+do i = 1, bi%getsize()
+   call random_number(x)
+   if (x < 0.01) then
+      n = n+1
+      call bi%set(i,.true.)
+   end if
+end do
+if (bi%count() /= n) error stop
+call tictoc(time)
+
+write(*,*) "PASSED (", time, "sec.)"
 
 END BLOCK bitfield
 
@@ -64,11 +90,14 @@ real, allocatable :: c(:,:)
 real, pointer :: b(:,:)
 integer, parameter :: NMMAX = 500
 integer :: n, m
+real :: time
 allocate( a(NMMAX**2) )
 call random_number(a)
 
 write(*,"(A)",advance="no") "In place transpose test..."
 
+call tictoc()
+!$OMP PARALLEL DO SCHEDULE(nonmonotonic:dynamic) PRIVATE(b,c,d)
 do n = 1, NMMAX
    do m = 1, NMMAX
       b(1:n,1:m) => a(1:n*m)
@@ -82,8 +111,10 @@ do n = 1, NMMAX
       end if
    end do
 end do
+!$OMP END PARALLEL DO
+call tictoc(time)
 
-write(*,*) "PASSED"
+write(*,*) "PASSED (", time, "sec.)" 
 
 END BLOCK inplace_tranpose
 
