@@ -56,8 +56,8 @@ write(*,"(A)",advance="no") "bitfield tests 4..."
 
 call tictoc()
 call bi%allocate(10**9)
-call bi%set(1,123456789,1,.true.)
-call bi%set(123456790,10**9,1,.false.)
+call bi%set(1,11111111,1,.true.)
+call bi%set(11111112,10**9,1,.false.)
 if (bi%count() /= 123456789) error stop
 !call bi%deallocate()
 call tictoc(time)
@@ -68,9 +68,20 @@ write(*,"(A)",advance="no") "bitfield tests 5..."
 
 call tictoc()
 !call bi%allocate(10**9)
-call bi%set(1,123456789,1,.false.)
+do i = 1, 11111111
+   call bi%set(i,.false.)
+end do
+if (bi%count() /= n) error stop
+call tictoc(time)
+
+write(*,*) "PASSED (", time, "sec.)"
+
+write(*,"(A)",advance="no") "bitfield tests 6..."
+
+call tictoc()
+!call bi%allocate(10**9)
 n = 0
-do i = 1, bi%getsize()
+do i = 11111112, bi%getsize()
    call random_number(x)
    if (x < 0.01) then
       n = n+1
