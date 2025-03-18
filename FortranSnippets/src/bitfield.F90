@@ -299,7 +299,8 @@ contains
    integer, intent(in) :: istart, istop, inc
    logical, intent(in) :: v(:)
    integer :: k, j, i, ii, iistart, iistop, jstart, jstop, iv
-   integer, allocatable :: iir(:)
+   !integer, allocatable :: iir(:)
+   integer :: iir(l), iirs
    integer(ik) :: a
       if (.not.allocated(this%a)) error stop "b_setrange1: bitfield is not allocated"
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
@@ -310,10 +311,12 @@ contains
          call b_indeces(this,istop ,jstop ,iistop)
          j = jstart
          iv = 0
+         iirs = 0
          do
-            call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)  
+            !call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)  
+            call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)  
             a = this%a(j)
-            do k = 1, size(iir)
+            do k = 1, iirs !size(iir)
                iv = iv+1
                if (v(iv)) then ; a = ibset(a,iir(k))
                           else ; a = ibclr(a,iir(k))
