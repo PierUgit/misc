@@ -7,7 +7,7 @@ implicit none
 
 bitfield: BLOCK
 
-real :: time, x
+real :: time
 integer :: i, n
 type(bitfield_t) :: bi, ci, di
 logical, allocatable :: li(:)
@@ -52,44 +52,78 @@ call di%deallocate()
 
 write(*,*) "PASSED"
 
-write(*,"(A)",advance="no") "bitfield tests 4..."
+write(*,"(A)",advance="no") "bitfield tests (setrange inc=1)..."
 
 call tictoc()
 call bi%allocate(10**9)
-call bi%set(1,11111111,1,.true.)
-call bi%set(11111112,10**9,1,.false.)
-if (bi%count() /= 123456789) error stop
-!call bi%deallocate()
+call bi%set(1,10**7,1,.true.)
+call bi%set(10**7+1,10**9,1,.false.)
 call tictoc(time)
+if (bi%count() /= 10**7) error stop
+call bi%deallocate()
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A)",advance="no") "bitfield tests 5..."
+write(*,"(A)",advance="no") "bitfield tests (setrange inc=11)..."
 
+call bi%allocate(10**9) ; bi = .false.
 call tictoc()
-!call bi%allocate(10**9)
-do i = 1, 11111111
+call bi%set(1,10**9,3,.true.)
+call tictoc(time)
+print*, bi%count(), (10**9-1)/11+1
+if (bi%count() /= (10**9-1)/11+1) error stop
+call bi%deallocate()
+
+write(*,*) "PASSED (", time, "sec.)"
+
+write(*,"(A)",advance="no") "bitfield tests (setrange inc=101)..."
+
+call bi%allocate(10**9) ; bi = .false.
+call tictoc()
+call bi%set(1,10**9,111,.true.)
+call tictoc(time)
+if (bi%count() /= (10**9-1)/101+1) error stop
+call bi%deallocate()
+
+write(*,*) "PASSED (", time, "sec.)"
+
+write(*,"(A)",advance="no") "bitfield tests (many sets inc=1)..."
+
+call bi%allocate(10**9) ; bi = .true.
+call tictoc()
+do i = 1, 10**7
    call bi%set(i,.false.)
 end do
-if (bi%count() /= n) error stop
 call tictoc(time)
+if (bi%count(1,10**7,1) /= 0) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A)",advance="no") "bitfield tests 6..."
+write(*,"(A)",advance="no") "bitfield tests (many sets inc=11)..."
 
 call tictoc()
 !call bi%allocate(10**9)
 n = 0
-do i = 11111112, bi%getsize()
-   call random_number(x)
-   if (x < 0.01) then
-      n = n+1
-      call bi%set(i,.true.)
-   end if
+do i = 10**7+1, 10**8, 11
+   n = n+1
+   call bi%set(i,.false.)
 end do
-if (bi%count() /= n) error stop
 call tictoc(time)
+if (bi%count(10**7+1,10**8,1) /= n) error stop
+
+write(*,*) "PASSED (", time, "sec.)"
+
+write(*,"(A)",advance="no") "bitfield tests 7 (many sets inc=101)..."
+
+call tictoc()
+!call bi%allocate(10**9)
+n = 0
+do i = 10**8+1, 10**9, 101
+   n = n+1
+   call bi%set(i,.false.)
+end do
+call tictoc(time)
+if (bi%count(10**8+1, 10**9, 1) /= n) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
@@ -103,16 +137,18 @@ real, allocatable :: c(:,:)
 real, pointer :: b(:,:)
 integer, parameter :: NMMAX = 500
 integer :: n, m
-real :: time
+real :: time, x
 allocate( a(NMMAX**2) )
 call random_number(a)
 
 write(*,"(A)",advance="no") "In place transpose test..."
 
 call tictoc()
-!$OMP PARALLEL DO SCHEDULE(nonmonotonic:dynamic) PRIVATE(b,c,d)
+!$OMP PARALLEL DO SCHEDULE(nonmonotonic:dynamic) PRIVATE(b,c,d,x)
 do n = 1, NMMAX
    do m = 1, NMMAX
+      call random_number(x)
+      if (x >= 0.1) cycle
       b(1:n,1:m) => a(1:n*m)
       c = transpose(b)
       d = a(1:n*m)

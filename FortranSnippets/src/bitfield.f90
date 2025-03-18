@@ -91,14 +91,15 @@ private
 public :: bitfield_t, bitfield_check
 public :: assignment(=)
 
-integer, parameter :: l = bit_size(0)
+integer, parameter :: ik = selected_int_kind(r=18)
+integer, parameter :: l = bit_size(0_ik)
 integer, parameter :: l2l = nint(log(real(l))/log(2.0))
-integer, parameter :: zeros = 0
-integer, parameter :: ones = not(zeros)
+integer(ik), parameter :: zeros = 0
+integer(ik), parameter :: ones = not(zeros)
 
 type :: bitfield_t
    private
-   integer, allocatable :: a(:)
+   integer(ik), allocatable :: a(:)
    integer :: n = -1
    integer :: lb = 1
    integer :: ub = 0
@@ -256,8 +257,8 @@ contains
    class(bitfield_t), intent(inout) :: this
    integer, intent(in) :: istart, istop, inc
    logical, intent(in) :: v
-   integer :: a, n
-   integer :: iistart, iistop, jstart, jstop
+   integer(ik) :: a
+   integer :: n, iistart, iistop, jstart, jstop
    type(bitfield_t) :: that
       if ((istop-istart)*inc < 0) return
       if (.not.allocated(this%a)) error stop "b_setrange0: bitfield is not allocated"
@@ -276,6 +277,7 @@ contains
          endif
       else
          call b_extract(this,istart,istop,inc,that)
+         print*, that%getsize()
          call b_setall0(that,v)
          call b_replace(this,istart,istop,inc,that)
       end if
@@ -628,8 +630,6 @@ contains
    integer, intent(out) :: j, ii
       ii = i-this%lb
       !j = ii/l ; ii = ii - j*l
-      ! Speed-up of about 15% on random accesses if shiftr() and shiftl() are used,
-      ! but it is fully portable?
       j = shiftr(ii,l2l); ii = ii - shiftl(j,l2l)
    end subroutine
    
