@@ -282,7 +282,7 @@ contains
             call mvbits(a,0,iistop+1,this%a(jstop),0)
          endif
       else
-         do i = istart,istop,inc
+         do i = istart, istop, inc
             call b_set0(this,i,v)
          end do
       end if
@@ -299,24 +299,22 @@ contains
    integer, intent(in) :: istart, istop, inc
    logical, intent(in) :: v(:)
    integer :: k, j, i, ii, iistart, iistop, jstart, jstop, iv
-   !integer, allocatable :: iir(:)
    integer :: iir(l), iirs
    integer(ik) :: a
       if (.not.allocated(this%a)) error stop "b_setrange1: bitfield is not allocated"
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange1(): out of bound indeces" 
          
-      if (inc <= 0) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      if (inc <= l/4) then ! is actually hardly faster...
          call b_indeces(this,istart,jstart,iistart)
          call b_indeces(this,istop ,jstop ,iistop)
          j = jstart
          iv = 0
          iirs = 0
          do
-            !call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)  
             call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)  
             a = this%a(j)
-            do k = 1, iirs !size(iir)
+            do k = 1, iirs
                iv = iv+1
                if (v(iv)) then ; a = ibset(a,iir(k))
                           else ; a = ibclr(a,iir(k))
@@ -328,11 +326,8 @@ contains
       else
          iv = 0
          do i = istart, istop, inc
-            call b_indeces(this,i,j,ii)
             iv = iv+1
-            if (v(iv)) then ; this%a(j) = ibset(this%a(j),ii)
-                       else ; this%a(j) = ibclr(this%a(j),ii)
-            end if
+            call b_set0( this, i, v(iv) )
          end do
       end if
    end subroutine 
@@ -695,7 +690,7 @@ contains
    integer, intent(inout) :: j
    integer, intent(inout) :: iir(l), iirs
    integer :: ii
-   if (jstart == jstop) then
+   if (iirs == 0 .and. jstart == jstop) then
       iirs = 0
       ii = iistart
       if (inc > 0) then
@@ -709,7 +704,7 @@ contains
             ii = ii + inc ; if (ii < iistop) exit
          end do
       end if
-   else if (j == jstart) then
+   else if (iirs == 0 .and. j == jstart) then
       iirs = 0
       ii = iistart
       if (inc > 0) then
@@ -725,12 +720,17 @@ contains
       end if
    else
       ii = iir(iirs) + inc
-      do while (ii >= l)
-         ii = ii - l ; j = j + 1
-      end do
-      do while (ii < 0)
-         ii = ii + l ; j = j - 1
-      end do
+      if (inc > 0) then
+         do
+            ii = ii - l ; j = j + 1
+            if (ii < l) exit
+         end do
+      else
+         do
+           ii = ii + l ; j = j - 1
+           if (ii >= 0) exit
+         end do
+      end if
       iirs = 0
       if (j == jstop) then
          if (inc > 0) then
