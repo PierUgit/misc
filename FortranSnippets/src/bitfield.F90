@@ -33,36 +33,36 @@
 ! call b%setub(ub)
 !     integer :: n, lb, ub
 !
-! call b%set(bool)
-! call b%set(pos,bool) 
-! call b%set(from,to,inc,bool) 
+! call b%set(bool)              ! efficient if bool is a scalar
+! call b%set(pos,bool)          ! not efficient
+! call b%set(from,to,inc,bool)  ! efficient if bool is a scalar and inc==1
 !     logical :: bool[(:)]
 !     integer :: pos, from, top, inc
 !     Note: b must always be allocated beforehand
 !     Note: setting from a logical array is highly inefficient
 !
-! b = bool
+! b = bool                      ! efficient if bool is a scalar
 !     type(bitfield_t) :: b
 !     logical :: bool[(:)]
 !     Note: allocation on assignement can occur if bool is rank 1
 !
-! call b%get(pos,bool)
-!     logical :: bool
-! call b%get(bool)
-! call b%get(from,to,inc,bool)
+! call b%get(pos,bool)          ! not efficient
+!     logical :: bool           
+! call b%get(bool)              ! not efficient
+! call b%get(from,to,inc,bool)  ! not efficient
 !     logical :: bool(:)
 !     integer :: pos, frompos, topos
 !     Note: bool(:) must be allocated beforehand
 !
-! bool = b%fget(pos)
+! bool = b%fget(pos)            ! not efficient
 !     logical :: bool
-! bool = b%fget()
-! bool = b%fget(from,to,inc)
+! bool = b%fget()               ! not efficient
+! bool = b%fget(from,to,inc)    ! not efficient
 !     logical :: bool(:)
 !     integer :: pos, from, top, inc
 !     Note: bool(:) must be allocated beforehand
 !
-! bool = b
+! bool = b                      ! not efficient
 !     type(bitfield_t) :: b
 !     logical, allocatable :: bool(:)
 !     Note: works only for an allocatable LHS; allocation on assignement can occur
