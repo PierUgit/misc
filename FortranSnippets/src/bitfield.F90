@@ -368,23 +368,32 @@ contains
    class(bitfield_t), intent(in) :: this
    integer, intent(in) :: istart, istop, inc
    logical, intent(out) :: v(:)
-   integer :: i1, i2, j, iistart, iistop, jstart, jstop
-   integer, allocatable :: iir(:)
-      if ((istop-istart)*inc < 0) return
+   integer :: i1, i2, j, iistart, iistop, jstart, jstop, i, iv
+   integer :: iir(l), iirs
+      if (sign(1,istop-istart)*sign(1,inc) < 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
-         error stop "b_setrange1(): out of bound indeces" 
-      call b_indeces(this,istart,jstart,iistart)
-      call b_indeces(this,istop ,jstop ,iistop)
+         error stop "b_getrange1(): out of bound indeces" 
 
-      j = jstart
-      i1 = 1
-      do
-         call b_getiir(jstart,jstop,iistart,iistop,inc,j,iir)
-         i2 = i1+size(iir)-1
-         v(i1:i2) = btest(this%a(j),iir)
-         if (j == jstop) exit
-         i1 = i2+1
-      end do
+      if (inc <= l/4) then
+         call b_indeces(this,istart,jstart,iistart)
+         call b_indeces(this,istop ,jstop ,iistop)
+         j = jstart
+         i1 = 1
+         iirs = 0
+         do
+            call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
+            i2 = i1+iirs-1
+            v(i1:i2) = btest(this%a(j),iir(1:iirs))
+            if (j == jstop) exit
+            i1 = i2+1
+         end do
+      else
+         iv = 0
+         do i = istart, istop, inc
+            iv = iv+1
+            call b_get1(this,i,v(iv))
+         end do
+      end if
    end subroutine 
          
    _PURE_ function b_fget1(this,i) result(v)
@@ -614,7 +623,7 @@ contains
    integer :: j, iistart, iistop, jstart, jstop
    integer, allocatable :: iir(:)
    type(bitfield_t) :: that
-      if ((istop-istart)*inc < 0) return
+      if (sign(1,istop-istart)*sign(1,inc) < 0) return
       call b_indeces(this,istart,jstart,iistart)
       call b_indeces(this,istop ,jstop ,iistop)
 
