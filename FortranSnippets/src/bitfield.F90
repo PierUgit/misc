@@ -305,7 +305,7 @@ contains
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange1(): out of bound indeces" 
          
-      if (inc <= l/4) then ! is actually hardly faster...
+      if (abs(inc) <= l/4) then ! is actually hardly faster...
          call b_indeces(this,istart,jstart,iistart)
          call b_indeces(this,istop ,jstop ,iistop)
          j = jstart
@@ -374,7 +374,7 @@ contains
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_getrange1(): out of bound indeces" 
 
-      if (inc <= l/4) then
+      if (abs(inc) <= l/4) then
          call b_indeces(this,istart,jstart,iistart)
          call b_indeces(this,istop ,jstop ,iistop)
          j = jstart
