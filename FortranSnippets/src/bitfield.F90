@@ -35,7 +35,7 @@
 !
 ! call b%set(bool)              ! efficient if bool is a scalar
 ! call b%set(pos,bool)          ! not efficient
-! call b%set(from,to,inc,bool)  ! efficient if bool is a scalar and inc==1
+! call b%set(from,to,inc,bool)  ! efficient if bool is a scalar and |inc|==1
 !     logical :: bool[(:)]
 !     integer :: pos, from, top, inc
 !     Note: b must always be allocated beforehand
@@ -101,6 +101,7 @@ implicit none
    integer, parameter :: ik = selected_int_kind(r=18)
    integer, parameter :: l = bit_size(0_ik)
    integer, parameter :: l2l = nint(log(real(l))/log(2.0))
+   integer, parameter :: minbatch = 8
    integer(ik), parameter :: zeros = 0
    integer(ik), parameter :: ones = not(zeros)
 
@@ -277,23 +278,43 @@ contains
       logical, intent(in) :: v
       
       integer(ik) :: a
-      integer :: iistart, iistop, jstart, jstop, i
+      integer :: iistart, iistop, jstart, jstop, i, j, k, istart___, istop___
+      integer :: iir(l/2), iirs
       
       if (sign(1,istop-istart)*sign(1,inc) < 0) return
       if (.not.allocated(this%a)) error stop "b_setrange0: bitfield is not allocated"
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange0(): out of bound indeces" 
-      if (inc == 1) then
+      
+      if (abs(inc) == 1) then
          a = merge(ones,zeros,v)
-         call b_indeces(this,istart,jstart,iistart)
-         call b_indeces(this,istop ,jstop ,iistop)
+         istart___ = merge( istart, istop, inc > 0 )
+         istop___  = merge( istart, istop, inc < 0 )
+         call b_indeces(this,istart___,jstart,iistart)
+         call b_indeces(this,istop___ ,jstop ,iistop)
          if (jstart == jstop) then
-            call mvbits(a,0,istop-istart+1,this%a(jstart),iistart)
+            call mvbits( a, 0, istop___-istart___+1, this%a(jstart), iistart )
          else
-            call mvbits(a,0,l-iistart,this%a(jstart),iistart)
+            call mvbits( a, 0, l-iistart, this%a(jstart), iistart )
             this%a(jstart+1:jstop-1) = a
             call mvbits(a,0,iistop+1,this%a(jstop),0)
          endif
+      else if (abs(inc) <= l/minbatch) then
+         call b_indeces(this,istart,jstart,iistart)
+         call b_indeces(this,istop ,jstop ,iistop)
+         j = jstart
+         iirs = 0
+         do
+            call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)  
+            a = this%a(j)
+            if (v) then
+               do k = 1, iirs ; a = ibset(a,iir(k)) ; end do
+            else
+               do k = 1, iirs ; a = ibclr(a,iir(k)) ; end do
+            end if
+            this%a(j) = a
+            if (j == jstop) exit
+         end do
       else
          do i = istart, istop, inc
             call b_set0(this,i,v)
@@ -321,7 +342,7 @@ contains
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange1(): out of bound indeces" 
          
-      if (abs(inc) <= l/4) then ! is actually hardly faster...
+      if (abs(inc) <= l/minbatch) then
          call b_indeces(this,istart,jstart,iistart)
          call b_indeces(this,istop ,jstop ,iistop)
          j = jstart
@@ -397,7 +418,7 @@ contains
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_getrange1(): out of bound indeces" 
 
-      if (abs(inc) <= l/4) then
+      if (abs(inc) <= l/minbatch) then
          call b_indeces(this,istart,jstart,iistart)
          call b_indeces(this,istop ,jstop ,iistop)
          j = jstart
@@ -440,7 +461,10 @@ contains
       integer, intent(in) :: istart, istop, inc
       logical, allocatable :: v(:)
       
-      allocate( v(istart:istop) )
+      integer :: n
+      
+      n = abs((istop-istart)/inc+1)
+      allocate( v(n) )
       call b_getrange(this,istart,istop,inc,v)   
    end function
 
@@ -481,7 +505,7 @@ contains
             end do
             call mvbits(that%a(jsource),l-iistart,iistart,this%a(jstop),0)
          end if
-      else if (abs(inc) <= l/4) then
+      else if (abs(inc) <= l/minbatch) then
          j = jstart
          jsource = 0
          iisource = 0
@@ -541,7 +565,7 @@ contains
             end do
             call mvbits(this%a(jstop),0,iistart,that%a(jdest),l-iistart)
          end if
-      else if (abs(inc) <= l/4) then
+      else if (abs(inc) <= l/minbatch) then
          j = jstart
          jdest = 0
          iidest = 0
@@ -613,7 +637,7 @@ contains
          iirs = 0
          call b_getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
          v = v .and. all( btest( this%a(jstop),iir(1:iirs) ) )
-      else if (abs(inc) <= l/4) then
+      else if (abs(inc) <= l/minbatch) then
          call b_indeces(this,istart,jstart,iistart)
          call b_indeces(this,istop ,jstop ,iistop)
          j = jstart
@@ -665,7 +689,7 @@ contains
          iirs = 0
          call b_getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
          v = v .or. any( btest( this%a(jstop),iir(1:iirs) ) )
-      else if (abs(inc) <= l/4) then
+      else if (abs(inc) <= l/minbatch) then
          call b_indeces(this,istart,jstart,iistart)
          call b_indeces(this,istop ,jstop ,iistop)
          j = jstart
@@ -717,7 +741,7 @@ contains
          iirs = 0
          call b_getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
          v = v + count( btest( this%a(jstop),iir(1:iirs) ) )
-      else if (abs(inc) <= l/4) then
+      else if (abs(inc) <= l/minbatch) then
          call b_indeces(this,istart,jstart,iistart)
          call b_indeces(this,istop ,jstop ,iistop)
          j = jstart
@@ -727,7 +751,7 @@ contains
             v = v + count(btest(this%a(j),iir(1:iirs)))
             if (j == jstop) exit
          end do
-      else                   !!! anormalement lent (??)
+      else
          do i = istart, istop, inc
             if (b_fget0( this, i )) v = v + 1
          end do
@@ -751,7 +775,7 @@ contains
    _PURE_ subroutine b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
       integer, intent(in) :: jstart, jstop, iistart, iistop, inc
       integer, intent(inout) :: j
-      integer, intent(inout) :: iir(l), iirs
+      integer, intent(inout) :: iir(l/2), iirs
       
       integer :: ii
       
