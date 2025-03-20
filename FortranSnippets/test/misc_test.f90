@@ -8,10 +8,12 @@ implicit none
 bitfield: BLOCK
 
 real :: time
-integer :: i, n, ipass
+integer :: i, n, ipass, j
 type(bitfield_t) :: bi, ci, di
 logical, allocatable :: li(:)
 double precision :: tic, toc
+integer, parameter :: INC1 = 1, INC2 = 5, INC3 = 49
+logical :: foo
 
 if (.not.bitfield_check()) error stop "bitfield is not usable"
 
@@ -64,23 +66,23 @@ if (bi%count() /= 10**7) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (setrange0 10**9 inc=11)..."
+write(*,"(A40)",advance="no") "bitfield tests (setrange0 10**9 inc=INC2)..."
 
 bi = .false.
 call tictoc()
-call bi%set(1,10**9,11,.true.)
+call bi%set(1,10**9,INC2,.true.)
 call tictoc(time)
-if (bi%count() /= (10**9-1)/11+1) error stop
+if (bi%count() /= (10**9-1)/INC2+1) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (setrange0 10**9 inc=101)..."
+write(*,"(A40)",advance="no") "bitfield tests (setrange0 10**9 inc=INC3)..."
 
 bi = .false.
 call tictoc()
-call bi%set(1,10**9,101,.true.)
+call bi%set(1,10**9,INC3,.true.)
 call tictoc(time)
-if (bi%count() /= (10**9-1)/101+1) error stop
+if (bi%count() /= (10**9-1)/INC3+1) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
@@ -110,44 +112,44 @@ deallocate(li)
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (setrange1 10**9 inc=11)..."
+write(*,"(A40)",advance="no") "bitfield tests (setrange1 10**9 inc=INC2)..."
 
 bi = .false.
-allocate( li((10**9-1)/11+1), source=.false. ) ; li(::3) = .true. ; n = count(li)
+allocate( li((10**9-1)/INC2+1), source=.false. ) ; li(::3) = .true. ; n = count(li)
 call tictoc()
-call bi%set(1,10**9,11,li)
+call bi%set(1,10**9,INC2,li)
 call tictoc(time)
-if (bi%count(1,10**9,11) /= n) error stop
+if (bi%count(1,10**9,INC2) /= n) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (getrange1 10**9 inc=11)..."
+write(*,"(A40)",advance="no") "bitfield tests (getrange1 10**9 inc=INC2)..."
 
 li = .false.
 call tictoc()
-call bi%get(1,10**9,11,li)
+call bi%get(1,10**9,INC2,li)
 call tictoc(time)
 if (count(li) /= n) error stop
 deallocate(li)
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (setrange1 10**9 inc=101)..."
+write(*,"(A40)",advance="no") "bitfield tests (setrange1 10**9 inc=INC3)..."
 
 bi = .false.
-allocate( li((10**9-1)/101+1), source=.false. ) ; li(::3) = .true. ; n = count(li)
+allocate( li((10**9-1)/INC3+1), source=.false. ) ; li(::3) = .true. ; n = count(li)
 call tictoc()
-call bi%set(1,10**9,101,li)
+call bi%set(1,10**9,INC3,li)
 call tictoc(time)
-if (bi%count(1,10**9,101) /= n) error stop
+if (bi%count(1,10**9,INC3) /= n) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (getrange1 10**9 inc=101)..."
+write(*,"(A40)",advance="no") "bitfield tests (getrange1 10**9 inc=INC3)..."
 
 li = .false.
 call tictoc()
-call bi%get(1,10**9,101,li)
+call bi%get(1,10**9,INC3,li)
 call tictoc(time)
 if (count(li) /= n) error stop
 deallocate(li)
@@ -156,15 +158,13 @@ write(*,*) "PASSED (", time, "sec.)"
 
 write(*,"(A40)",advance="no") "bitfield tests (sets0     10**9 inc=1)..."
 
-allocate( li(10**7), source=.false. ) ; li(::3) = .true. ; n = count(li)
+allocate( li(10**9), source=.false. ) ; li(::3) = .true. ; n = count(li)
 call tictoc()
-do ipass = 1, 10**9, 10**7
-do i = 1, 10**7
-   call bi%set(ipass+i,li(i))
-end do
+do i = 1, 10**9
+   call bi%set(i,li(i))
 end do
 call tictoc(time)
-if (bi%count(1,10**7,1) /= n) error stop
+if (bi%count(1,10**9,1) /= n) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
@@ -172,66 +172,56 @@ write(*,"(A40)",advance="no") "bitfield tests (gets0     10**9 inc=1)..."
 
 li = .false.
 call tictoc()
-do ipass = 1, 10**9, 10**7
-do i = 1, 10**7
-   call bi%get(ipass+i,li(i))
-end do
+do i = 1, 10**9
+   call bi%get(i,li(i))
 end do
 call tictoc(time)
 if (count(li) /= n) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (sets0     10**9 inc=11)..."
+write(*,"(A40)",advance="no") "bitfield tests (sets0     10**9 inc=INC2)..."
 
-li = .false.; li(::3) = .true.; n = count(li(::11))
+li = .false.; li(::3) = .true.; n = count(li(::INC2))
 call tictoc()
-do ipass = 1, 10**9, 10**7
-do i = 1, 10**7, 11
-   call bi%set(ipass+i,li(i))
-end do
+do i = 1, 10**9, INC2
+   call bi%set(i,li(i))
 end do
 call tictoc(time)
-if (bi%count(1,10**7,11) /= n) error stop
+if (bi%count(1,10**9,INC2) /= n) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (gets0     10**9 inc=11)..."
+write(*,"(A40)",advance="no") "bitfield tests (gets0     10**9 inc=INC2)..."
 
 li = .false.
 call tictoc()
-do ipass = 1, 10**9, 10**7
-do i = 1, 10**7, 11
-   call bi%get(ipass+i,li(i))
-end do
+do i = 1, 10**9, INC2
+   call bi%get(i,li(i))
 end do
 call tictoc(time)
 if (count(li) /= n) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (sets0     10**9 inc=101)..."
+write(*,"(A40)",advance="no") "bitfield tests (sets0     10**9 inc=INC3)..."
 
-li = .false.; li(::3) = .true.;  n = count(li(::101))
+li = .false.; li(::3) = .true.; n = count(li(::INC3))
 call tictoc()
-do ipass = 1, 10**9, 10**7
-do i = 1, 10**7, 101
-   call bi%set(ipass+i,li(i))
-end do
+do i = 1, 10**9, INC3
+   call bi%set(i,li(i))
 end do
 call tictoc(time)
-if (bi%count(1,10**7,101) /= n) error stop
+if (bi%count(1,10**9,INC3) /= n) error stop
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (gets0     10**9 inc=101)..."
+write(*,"(A40)",advance="no") "bitfield tests (gets0     10**9 inc=INC3)..."
 
 li = .false.
 call tictoc()
-do ipass = 1, 10**9, 10**7
-do i = 1, 10**7, 101
-   call bi%get(ipass+i,li(i))
-end do
+do i = 1, 10**9, INC3
+   call bi%get(i,li(i))
 end do
 call tictoc(time)
 if (count(li) /= n) error stop
@@ -252,26 +242,26 @@ call ci%deallocate()
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (extract   10**9 inc=11)..."
+write(*,"(A40)",advance="no") "bitfield tests (extract   10**9 inc=INC2)..."
 
-bi = .false.; call bi%set( 10**8+1, 10**9, 11, .true. )
+bi = .false.; call bi%set( 10**8+1, 10**9, INC2, .true. )
 n = bi%count();
 call tictoc()
-call bi%extract( 10**8+1, 10**9  , 11, ci )
-call bi%replace( 10**8  , 10**9-1, 11, ci )
+call bi%extract( 10**8+1, 10**9  , INC2, ci )
+call bi%replace( 10**8  , 10**9-1, INC2, ci )
 call tictoc(time)
 if (bi%count() /= 2*n) error stop
 call ci%deallocate()
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (extract   10**9 inc=101)..."
+write(*,"(A40)",advance="no") "bitfield tests (extract   10**9 inc=INC3)..."
 
-bi = .false.; call bi%set( 10**8+1, 10**9, 101, .true. )
+bi = .false.; call bi%set( 10**8+1, 10**9, INC3, .true. )
 n = bi%count();
 call tictoc()
-call bi%extract( 10**8+1, 10**9  , 101, ci )
-call bi%replace( 10**8  , 10**9-1, 101, ci )
+call bi%extract( 10**8+1, 10**9  , INC3, ci )
+call bi%replace( 10**8  , 10**9-1, INC3, ci )
 call tictoc(time)
 if (bi%count() /= 2*n) error stop
 call ci%deallocate()
@@ -281,26 +271,26 @@ write(*,*) "PASSED (", time, "sec.)"
 write(*,"(A40)",advance="no") "bitfield tests (count     10**9 inc=1)..."
 
 bi = .false.
-call bi%set(1,10**9,11,.true.)
+call bi%set(1,10**9,INC2,.true.)
 call tictoc()
-if (bi%count() /= (10**9-1)/11+1) error stop
+if (bi%count() /= (10**9-1)/INC2+1) error stop
 call tictoc(time)
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (count     10**9 inc=11)..."
+write(*,"(A40)",advance="no") "bitfield tests (count     10**9 inc=INC2)..."
 
 call tictoc()
-if (bi%count(1,10**9,11) /= (10**9-1)/11+1) error stop
+if (bi%count(1,10**9,INC2) /= (10**9-1)/INC2+1) error stop
 call tictoc(time)
 
 write(*,*) "PASSED (", time, "sec.)"
 
-write(*,"(A40)",advance="no") "bitfield tests (count     10**9 inc=101)..."
+write(*,"(A40)",advance="no") "bitfield tests (count     10**9 inc=INC3)..."
 
-li = bi%fget(1,10**9,101)
+li = bi%fget(1,10**9,INC3)
 call tictoc()
-if (bi%count(1,10**9,101) /= count(li)) error stop
+if (bi%count(1,10**9,INC3) /= count(li)) error stop
 call tictoc(time)
 
 write(*,*) "PASSED (", time, "sec.)"

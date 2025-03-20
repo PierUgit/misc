@@ -78,15 +78,15 @@
 !     Note: in the subroutine form, c must not be allocated beforehand
 !
 ! n = b%count()                 ! efficient
-! n = b%count(from,top,inc)     ! efficient if inc==1
+! n = b%count(from,top,inc)     ! efficient if |inc|==1
 !     integer :: from, to, inc
 !
 ! bool = b%all()                ! efficient
-! bool = b%all(from,to,inc)     ! efficient if inc==1
+! bool = b%all(from,to,inc)     ! efficient if |inc|==1
 !     integer :: from, to, inc
 !
 ! bool = b%any()                ! efficient
-! bool = b%any(from,to,inc)     ! efficient if inc==1
+! bool = b%any(from,to,inc)     ! efficient if |inc|==1
 !     integer :: from, to, inc
 !***********************************************************************************************
 module bitfield
@@ -101,7 +101,7 @@ implicit none
    integer, parameter :: ik = selected_int_kind(r=18)
    integer, parameter :: l = bit_size(0_ik)
    integer, parameter :: l2l = nint(log(real(l))/log(2.0))
-   integer, parameter :: minbatch = 8
+   integer, parameter :: minbatch = 10
    integer(ik), parameter :: zeros = 0
    integer(ik), parameter :: ones = not(zeros)
 
@@ -824,15 +824,11 @@ contains
       else
          ii = iir(iirs) + inc
          if (inc > 0) then
-            do
-               ii = ii - l ; j = j + 1
-               if (ii < l) exit
-            end do
+            ii = ii - l
+            j = j + 1
          else
-            do
-              ii = ii + l ; j = j - 1
-              if (ii >= 0) exit
-            end do
+            ii = ii + l
+            j = j - 1
          end if
          iirs = 0
          if (j == jstop) then
