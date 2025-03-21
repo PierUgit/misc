@@ -186,7 +186,7 @@ write(*,"(A40)",advance="no") "bitfield tests (sets0     10**9 inc=INC2)..."
 allocate( li((10**9-1)/INC2+1), source=.false. ) ; li(::3) = .true. ; n = count(li)
 call tictoc()
 do i = 0, (10**9-1)/INC2
-   call bi%set(i*INC2,li(i+1))
+   call bi%set(i*INC2+1,li(i+1))
 end do
 call tictoc(time)
 if (bi%count(1,10**9,INC2) /= n) error stop
@@ -198,7 +198,7 @@ write(*,"(A40)",advance="no") "bitfield tests (gets0     10**9 inc=INC2)..."
 li = .false.
 call tictoc()
 do i = 0, (10**9-1)/INC2
-   call bi%get(i*INC2,li(i+1))
+   call bi%get(i*INC2+1,li(i+1))
 end do
 call tictoc(time)
 if (count(li) /= n) error stop
@@ -211,7 +211,7 @@ write(*,"(A40)",advance="no") "bitfield tests (sets0     10**9 inc=INC3)..."
 allocate( li((10**9-1)/INC3+1), source=.false. ) ; li(::3) = .true. ; n = count(li)
 call tictoc()
 do i = 0, (10**9-1)/INC3
-   call bi%set(i*INC3,li(i+1))
+   call bi%set(i*INC3+1,li(i+1))
 end do
 call tictoc(time)
 if (bi%count(1,10**9,INC3) /= n) error stop
@@ -223,7 +223,7 @@ write(*,"(A40)",advance="no") "bitfield tests (gets0     10**9 inc=INC3)..."
 li = .false.
 call tictoc()
 do i = 0, (10**9-1)/INC3
-   call bi%get(i*INC3,li(i+1))
+   call bi%get(i*INC3+1,li(i+1))
 end do
 call tictoc(time)
 if (count(li) /= n) error stop
