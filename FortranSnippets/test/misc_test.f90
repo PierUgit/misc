@@ -12,7 +12,7 @@ integer :: i, n, ipass, j
 type(bitfield_t) :: bi, ci, di
 logical, allocatable :: li(:)
 double precision :: tic, toc
-integer, parameter :: INC1 = 1, INC2 = 5, INC3 = 49
+integer, parameter :: INC1 = 1, INC2 = 2, INC3 = 20
 logical :: foo
 
 if (.not.bitfield_check()) error stop "bitfield is not usable"
