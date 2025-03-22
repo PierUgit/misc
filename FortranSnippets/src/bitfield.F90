@@ -682,7 +682,74 @@ contains
       end if
    end function 
    
-   
+   _PURE_ recursive logical function anyall(this,istart,istop,inc,is_all) result(v)
+      type(bitfield_t), intent(in) :: this
+      integer, intent(in) :: istart, istop, inc
+      logical, intent(in) :: is_all
+      
+      integer :: j, iistart, iistop, jstart, jstop, i
+      integer :: iir(l), iirs
+
+      if (inc < 0) then
+         v = anyall(this,istop+mod(istart-istop,-inc),istart,-inc,is_all)
+         return
+      end if
+
+      v = is_all
+      if (istop < istart) return
+
+      if (inc == 1) then
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
+         iirs = 0
+         call getiirs(jstart,jstop,iistart,iistop,inc,jstart,iir,iirs)
+         if (is_all) then
+            v = v .and. all( btest( this%a(j),iir(1:iirs) ) ) 
+            if (.not.v) return
+         else
+            v = v .or. any( btest( this%a(j),iir(1:iirs) ) ) 
+            if (v) return
+         end if
+         if (jstop == jstart) return
+         if (is_all) then
+            do j = jstart + inc, jstop - inc, inc
+               v = v .and. this%a(j) == ones
+               if (.not.v) return
+            end do
+         else
+            do j = jstart + inc, jstop - inc, inc
+               v = v .or. this%a(j) /= zeros
+               if (v) return
+            end do
+         end if
+         iirs = 0
+         call getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
+         if (is_all) then
+            v = v .and. all( btest( this%a(jstop),iir(1:iirs) ) )
+         else
+            v = v .or. any( btest( this%a(jstop),iir(1:iirs) ) )
+         end if
+      else if (inc <= l/minbatch) then
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
+         j = jstart
+         iirs = 0
+         do
+            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
+            v = v .or. any( btest( this%a(j),iir(1:iirs) ) )
+            if (j == jstop) exit
+            if (v) return
+         end do
+      else
+         do i = istart, istop, inc
+            if (b_fget0( this, i ) .neqv. is_all) then
+               v = .not.is_all
+               return
+            end if
+         end do
+      end if
+   end function 
+
 
    _PURE_ integer function b_countall(this) result(v)
       class(bitfield_t), intent(in) :: this
