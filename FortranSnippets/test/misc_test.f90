@@ -92,6 +92,10 @@ call bi%set(1,10**9,INC3,.true.)
 call tictoc(time)
 if (bi%count() /= (10**9-1)/INC3+1) error stop
 
+bi = .false.
+call bi%set(10**9,1,-INC3,.true.)
+if (bi%count() /= (10**9-1)/INC3+1) error stop
+
 write(*,*) "PASSED (", time, "sec.)"
 
 write(*,"(A40)",advance="no") "bitfield tests (setrange1 10**9 inc=1)..."
@@ -129,6 +133,11 @@ call bi%set(1,10**9,INC2,li)
 call tictoc(time)
 if (bi%count(1,10**9,INC2) /= n) error stop
 
+bi = .false.
+call bi%set(10**9,1,-INC2,li)
+call tictoc(time)
+if (bi%count(INC2-1,10**9,INC2) /= n) error stop
+
 write(*,*) "PASSED (", time, "sec.)"
 
 write(*,"(A40)",advance="no") "bitfield tests (getrange1 10**9 inc=INC2)..."
@@ -137,6 +146,10 @@ li = .false.
 call tictoc()
 call bi%get(1,10**9,INC2,li)
 call tictoc(time)
+if (count(li) /= n) error stop
+
+li = .false.
+call bi%get(10**9,1,-INC2,li)
 if (count(li) /= n) error stop
 deallocate(li)
 
