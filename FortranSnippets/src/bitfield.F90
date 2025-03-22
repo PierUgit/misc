@@ -282,7 +282,7 @@ contains
       integer :: iir(l), iirs
       
       if (inc < 0) then
-         call b_setrange0(this,istop+mod(istart-istop,inc),istart,-inc,v)
+         call b_setrange0(this,istop+mod(istart-istop,-inc),istart,-inc,v)
          return
       end if
       
@@ -400,9 +400,9 @@ contains
          error stop "b_getrange1(): out of bound indeces" 
 
       if (abs(inc) <= l/minbatch) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
          if (inc > 0) then
+            call indeces( this, istart, jstart, iistart)
+            call indeces( this, istop , jstop , iistop)
             j = jstart
             i1 = 1
             iirs = 0
@@ -414,7 +414,8 @@ contains
                i1 = i2+1
             end do
          else
-            j = jstop
+            call indeces( this, istart,                       jstart, iistart )
+            call indeces( this, istop+mod(istart-istop,-inc), jstop,  iistop  )
             i1 = size(v)
             iirs = 0
             do
@@ -519,11 +520,16 @@ contains
       integer :: iir(l), iirs
       logical :: v(l)
       
-      if (sign(1,istop-istart)*sign(1,inc) < 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
          error stop "b_extract(): out of bound indeces" 
       if (allocated(that%a)) error stop "b_pull: destination is already allocated"
+      
       n = (istop-istart)/inc + 1
+      if (n <= 0) then
+         call b_allocate1(that,0)
+         return
+      end if
+      
       call b_allocate1(that,n)
       call indeces(this,istart,jstart,iistart)
       call indeces(this,istop ,jstop ,iistop)
@@ -575,7 +581,7 @@ contains
       integer :: iir(l), iirs
 
       if (inc < 0) then
-         v = b_allrange(this,istop+mod(istart-istop,inc),istart,-inc)
+         v = b_allrange(this,istop+mod(istart-istop,-inc),istart,-inc)
          return
       end if
       
@@ -632,7 +638,7 @@ contains
       integer :: iir(l), iirs
 
       if (inc < 0) then
-         v = b_anyrange(this,istop+mod(istart-istop,inc),istart,-inc)
+         v = b_anyrange(this,istop+mod(istart-istop,-inc),istart,-inc)
          return
       end if
 
@@ -691,7 +697,7 @@ contains
       integer :: iir(l), iirs
    
       if (inc < 0) then
-         v = b_countrange(this,istop+mod(istart-istop,inc),istart,-inc)
+         v = b_countrange(this,istop+mod(istart-istop,-inc),istart,-inc)
          return
       end if
 
