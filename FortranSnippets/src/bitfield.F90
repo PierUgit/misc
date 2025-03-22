@@ -286,12 +286,12 @@ contains
          return
       end if
       
-      if (sign(1,istop-istart)*sign(1,inc) < 0) return
       if (.not.allocated(this%a)) error stop "b_setrange0: bitfield is not allocated"
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange0(): out of bound indeces" 
+      if (istop < istart) return
       
-      if (abs(inc) == 1) then
+      if (inc == 1) then
          a = merge(ones,zeros,v)
          call indeces(this,istart,jstart,iistart)
          call indeces(this,istop ,jstop ,iistop)
@@ -302,7 +302,7 @@ contains
             this%a(jstart+1:jstop-1) = a
             call mvbits(a,0,iistop+1,this%a(jstop),0)
          endif
-      else if (abs(inc) <= l/minbatch) then
+      else if (inc <= l/minbatch) then
          call indeces(this,istart,jstart,iistart)
          call indeces(this,istop ,jstop ,iistop)
          j = jstart
@@ -754,7 +754,8 @@ contains
       
       integer :: ii, delta
       
-      if ((iirs > 0 .or. j > jstart) .and. j < jstop) then
+      if (j > jstart .and. j < jstop) then
+         ! more frequent case for large bitsets, the whole chunk is updated
          delta = iirs*inc - l
          if (delta >= 0) then
             iir(1:iirs) = iir(1:iirs) + delta
@@ -765,25 +766,40 @@ contains
          end if
          j = j+1
       else if (iirs == 0 .and. jstart == jstop) then
+         ! the bitfield is made of a single chunk 
          ii = iistart
          do
             iirs = iirs+1 ; iir(iirs) = ii
             ii = ii + inc ; if (ii > iistop) exit
          end do
       else if (iirs == 0 .and. j == jstart) then
+         ! More than one chunk, the first chunk is set (can be incomplete)
          ii = iistart
          do
             iirs = iirs+1 ; iir(iirs) = ii
             ii = ii + inc ; if (ii > l-1) exit
          end do
+      else if (j == jstart .and. j < jstop) then
+         ! More than two chunks, the second chunk is set (is complete)
+         ii = iir(iirs) + inc - l
+         iirs = 0
+         do
+            iirs = iirs+1 ; iir(iirs) = ii
+            ii = ii + inc ; if (ii > l-1) exit
+         end do
+         if (iirs < l) iir(iirs+1) = iir(iirs) + inc
+         j = j+1
       else if (iirs > 0 .and. j == jstop) then
-         ii = iistart
+         ! More than one chunk, the last chunk is set (can be incomplete)
+         ii = iir(iirs) + inc - l
          iirs = 0
          do
             iirs = iirs+1 ; iir(iirs) = ii
             ii = ii + inc ; if (ii > iistop) exit
          end do
-      else if (j == jstop) then   ! |inc|==1 in this specific case
+      else if (j == jstop) then   
+         ! special case, call directly on the last chunk 
+         ! inc==1 in this specific case
          iirs = 0
          ii = iistop
          do
