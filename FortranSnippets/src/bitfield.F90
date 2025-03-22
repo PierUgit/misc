@@ -648,9 +648,14 @@ contains
          iirs = 0
          do
             call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-            v = v .or. any( btest( this%a(j),iir(1:iirs) ) )
+            if (is_all) then
+               v = v .and. all( btest( this%a(j),iir(1:iirs) ) )
+               if (.not.v) return
+            else
+               v = v .or. any( btest( this%a(j),iir(1:iirs) ) )
+               if (v) return
+            end if
             if (j == jstop) exit
-            if (v) return
          end do
       else
          do i = istart, istop, inc

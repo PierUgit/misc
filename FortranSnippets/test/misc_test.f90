@@ -326,6 +326,39 @@ call tictoc(time)
 
 write(*,*) "PASSED (", time, "sec.)"
 
+write(*,"(A40)",advance="no") "bitfield tests (anyall    10**9 inc=1)..."
+
+bi = .false.
+if (bi%any() .or. bi%all()) error stop
+call bi%set(1,10**9,INC2,.true.)
+if (.not.bi%any() .or. bi%all()) error stop
+bi = .true.
+if (.not.bi%any() .or. .not.bi%all()) error stop
+
+write(*,*) "PASSED"
+
+write(*,"(A40)",advance="no") "bitfield tests (anyall    10**9 inc=INC2)..."
+
+bi = .false.
+if (bi%any(1,10**9,INC2) .or. bi%all(10**9,1,-INC2)) error stop "a"
+call bi%set(1,10**9,2*INC2,.true.)
+if (.not.bi%any(1,10**9,INC2) .or. bi%all(1,10**9,INC2)) error stop "b"
+bi = .true.
+if (.not.bi%any(10**9,1,-INC2) .or. .not.bi%all(1,10**9,INC2)) error stop "c"
+
+write(*,*) "PASSED"
+
+write(*,"(A40)",advance="no") "bitfield tests (anyall    10**9 inc=INC3)..."
+
+bi = .false.
+if (bi%any(1,10**9,INC3) .or. bi%all(10**9,1,-INC3)) error stop
+call bi%set(1,10**9,2*INC3,.true.)
+if (.not.bi%any(1,10**9,INC3) .or. bi%all(1,10**9,INC3)) error stop
+bi = .true.
+if (.not.bi%any(10**9,1,-INC3) .or. .not.bi%all(1,10**9,INC3)) error stop
+
+write(*,*) "PASSED"
+
 END BLOCK bitfield
 
 
