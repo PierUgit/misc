@@ -416,6 +416,7 @@ contains
          else
             call indeces( this, istart,                       jstart, iistart )
             call indeces( this, istop+mod(istart-istop,-inc), jstop,  iistop  )
+            j = jstop
             i1 = size(v)
             iirs = 0
             do
