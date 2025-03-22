@@ -31,7 +31,7 @@ write(*,"(A)",advance="no") "bitfield tests 2..."
 
 call bi%allocate(-10,60)
 call bi%set(-10,10,1,.true.)
-call bi%set(11,60,1,.false.)
+call bi%set(60,11,-1,.false.)
 if (.not.bi%fget(0)) error stop
 if (bi%fget(20)) error stop
 call bi%extract(0,20,1,ci)
