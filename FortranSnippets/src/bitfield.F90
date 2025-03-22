@@ -184,12 +184,18 @@ contains
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: lb, ub
       
+      integer :: i
+      
       if (allocated(this%a)) error stop "bitfield is already allocated"
       if (ub >= lb) then
          this%n = ub - lb + 1 
          this%lb = lb
          this%ub = ub
          allocate( this%a(0:(this%n-1)/l) )
+         call indeces(this%n,j,ii)
+         do i = ii+1, l-1
+            this%a(j) = ibclr(this%a(j),i)
+         end do
       else
          this%n = 0 
          allocate( this%a(0) )
