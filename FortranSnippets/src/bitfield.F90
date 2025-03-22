@@ -574,55 +574,11 @@ contains
       b_allall = b_allrange(this,this%lb,this%ub,1)
    end function 
 
-   _PURE_ recursive logical function b_allrange(this,istart,istop,inc) result(v)
+   _PURE_ logical function b_allrange(this,istart,istop,inc) result(v)
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
-      integer :: i, j, iistart, iistop, jstart, jstop
-      integer :: iir(l), iirs
-
-      if (inc < 0) then
-         v = b_allrange(this,istop+mod(istart-istop,-inc),istart,-inc)
-         return
-      end if
-      
-      v = .true.
-      if (sign(1,istop-istart)*sign(1,inc) < 0) return
-
-      if (abs(inc) == 1) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
-         iirs = 0
-         call getiirs(jstart,jstop,iistart,iistop,inc,jstart,iir,iirs)
-         v = v .and. all( btest( this%a(j),iir(1:iirs) ) ) 
-         if (.not.v) return
-         if (jstop == jstart) return
-         do j = jstart + inc, jstop - inc, inc
-            v = v .and. this%a(j) == ones
-            if (.not.v) return
-         end do
-         iirs = 0
-         call getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
-         v = v .and. all( btest( this%a(jstop),iir(1:iirs) ) )
-      else if (abs(inc) <= l/minbatch) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
-         j = jstart
-         iirs = 0
-         do
-            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-            v = v .and. all( btest( this%a(j),iir(1:iirs) ) )
-            if (j == jstop) exit
-            if (.not.v) return
-         end do
-      else 
-         do i = istart, istop, inc
-            if (.not.b_fget0( this, i )) then
-               v = .false.
-               return
-            end if
-         end do
-      end if
+      v = anyall(this,istart,istop,inc,.true.)
    end function 
 
    _PURE_ logical function b_anyall(this)
@@ -631,55 +587,11 @@ contains
       b_anyall = b_anyrange(this,this%lb,this%ub,1)
    end function 
 
-   _PURE_ recursive logical function b_anyrange(this,istart,istop,inc) result(v)
+   _PURE_ logical function b_anyrange(this,istart,istop,inc) result(v)
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
-      integer :: j, iistart, iistop, jstart, jstop, i
-      integer :: iir(l), iirs
-
-      if (inc < 0) then
-         v = b_anyrange(this,istop+mod(istart-istop,-inc),istart,-inc)
-         return
-      end if
-
-      v = .false.
-      if (sign(1,istop-istart)*sign(1,inc) < 0) return
-
-      if (abs(inc) == 1) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
-         iirs = 0
-         call getiirs(jstart,jstop,iistart,iistop,inc,jstart,iir,iirs)
-         v = v .or. any( btest( this%a(j),iir(1:iirs) ) ) 
-         if (v) return
-         if (jstop == jstart) return
-         do j = jstart + inc, jstop - inc, inc
-            v = v .or. this%a(j) /= zeros
-            if (v) return
-         end do
-         iirs = 0
-         call getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
-         v = v .or. any( btest( this%a(jstop),iir(1:iirs) ) )
-      else if (abs(inc) <= l/minbatch) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
-         j = jstart
-         iirs = 0
-         do
-            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-            v = v .or. any( btest( this%a(j),iir(1:iirs) ) )
-            if (j == jstop) exit
-            if (v) return
-         end do
-      else                   !!! anormalement lent (??)
-         do i = istart, istop, inc
-            if (b_fget0( this, i )) then
-               v = .true.
-               return
-            end if
-         end do
-      end if
+      v = anyall(this,istart,istop,inc,.false.)
    end function 
    
    _PURE_ recursive logical function anyall(this,istart,istop,inc,is_all) result(v)
