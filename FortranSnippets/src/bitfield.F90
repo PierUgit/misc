@@ -256,7 +256,7 @@ contains
       integer :: ii, j
       
       ! no runtime check, as it would hurt the performances for a single bit set
-      call b_indeces(this,i,j,ii)
+      call indeces(this,i,j,ii)
       if (v) then
          this%a(j) = ibset(this%a(j),ii)
       else
@@ -272,14 +272,19 @@ contains
       this%a(:) = merge(ones,zeros,v)
    end subroutine 
 
-   _PURE_ subroutine b_setrange0(this,istart,istop,inc,v)
+   _PURE_ recursive subroutine b_setrange0(this,istart,istop,inc,v)
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
       logical, intent(in) :: v
       
       integer(ik) :: a
-      integer :: iistart, iistop, jstart, jstop, i, j, k, istart___, istop___
-      integer :: iir(l/2), iirs
+      integer :: iistart, iistop, jstart, jstop, i, j, k
+      integer :: iir(l), iirs
+      
+      if (inc < 0) then
+         call b_setrange0(this,istop+mod(istart-istop,inc),istart,-inc,v)
+         return
+      end if
       
       if (sign(1,istop-istart)*sign(1,inc) < 0) return
       if (.not.allocated(this%a)) error stop "b_setrange0: bitfield is not allocated"
@@ -288,29 +293,25 @@ contains
       
       if (abs(inc) == 1) then
          a = merge(ones,zeros,v)
-         istart___ = merge( istart, istop, inc > 0 )
-         istop___  = merge( istart, istop, inc < 0 )
-         call b_indeces(this,istart___,jstart,iistart)
-         call b_indeces(this,istop___ ,jstop ,iistop)
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          if (jstart == jstop) then
-            call mvbits( a, 0, istop___-istart___+1, this%a(jstart), iistart )
+            call mvbits( a, 0, istop-istart+1, this%a(jstart), iistart )
          else
             call mvbits( a, 0, l-iistart, this%a(jstart), iistart )
             this%a(jstart+1:jstop-1) = a
             call mvbits(a,0,iistop+1,this%a(jstop),0)
          endif
       else if (abs(inc) <= l/minbatch) then
-         call b_indeces(this,istart,jstart,iistart)
-         call b_indeces(this,istop ,jstop ,iistop)
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          j = jstart
          iirs = 0
          do
-            call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)  
+            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)  
             a = this%a(j)
-            if (v) then
-               do k = 1, iirs ; a = ibset(a,iir(k)) ; end do
-            else
-               do k = 1, iirs ; a = ibclr(a,iir(k)) ; end do
+            if (v) then ; do k = 1, iirs ; a = ibset(a,iir(k)) ; end do
+                   else ; do k = 1, iirs ; a = ibclr(a,iir(k)) ; end do
             end if
             this%a(j) = a
             if (j == jstop) exit
@@ -342,31 +343,11 @@ contains
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange1(): out of bound indeces" 
          
-      if (abs(inc) <= l/minbatch) then
-         call b_indeces(this,istart,jstart,iistart)
-         call b_indeces(this,istop ,jstop ,iistop)
-         j = jstart
-         iv = 0
-         iirs = 0
-         do
-            call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)  
-            a = this%a(j)
-            do k = 1, iirs
-               iv = iv+1
-               if (v(iv)) then ; a = ibset(a,iir(k))
-                          else ; a = ibclr(a,iir(k))
-               end if
-            end do
-            this%a(j) = a
-            if (j == jstop) exit
-         end do
-      else
-         iv = 0
-         do i = istart, istop, inc
-            iv = iv+1
-            call b_set0( this, i, v(iv) )
-         end do
-      end if
+      iv = 0
+      do i = istart, istop, inc
+         iv = iv+1
+         call b_set0( this, i, v(iv) )
+      end do
    end subroutine 
 
    _PURE_ subroutine assign_l2b_0(this,v)
@@ -394,7 +375,7 @@ contains
       
       integer :: j, ii
       
-      call b_indeces(this,i,j,ii)
+      call indeces(this,i,j,ii)
       v = btest(this%a(j),ii)
    end subroutine 
    
@@ -419,18 +400,31 @@ contains
          error stop "b_getrange1(): out of bound indeces" 
 
       if (abs(inc) <= l/minbatch) then
-         call b_indeces(this,istart,jstart,iistart)
-         call b_indeces(this,istop ,jstop ,iistop)
-         j = jstart
-         i1 = 1
-         iirs = 0
-         do
-            call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-            i2 = i1+iirs-1
-            v(i1:i2) = btest(this%a(j),iir(1:iirs))
-            if (j == jstop) exit
-            i1 = i2+1
-         end do
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
+         if (inc > 0) then
+            j = jstart
+            i1 = 1
+            iirs = 0
+            do
+               call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
+               i2 = i1+iirs-1
+               v(i1:i2) = btest(this%a(j),iir(1:iirs))
+               if (j == jstop) exit
+               i1 = i2+1
+            end do
+         else
+            j = jstop
+            i1 = size(v)
+            iirs = 0
+            do
+               call getiirs(jstop,jstart,iistop,iistart,-inc,j,iir,iirs)
+               i2 = i1-iirs+1
+               v(i1:i2:-1) = btest(this%a(j),iir(1:iirs))
+               if (j == jstart) exit
+               i1 = i2-1
+            end do
+         end if
       else
          iv = 0
          do i = istart, istop, inc
@@ -490,8 +484,8 @@ contains
       if (that%getsize() <= 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_replace(): out of bound bounds" 
-      call b_indeces(this,istart,jstart,iistart)
-      call b_indeces(this,istop,jstop ,iistop)
+      call indeces(this,istart,jstart,iistart)
+      call indeces(this,istop,jstop ,iistop)
       if (inc == 1) then
          if (jstart == jstop) then
             call mvbits(that%a(0),0,iistop-iistart+1,this%a(jstart),iistart)
@@ -505,25 +499,6 @@ contains
             end do
             call mvbits(that%a(jsource),l-iistart,iistart,this%a(jstop),0)
          end if
-      else if (abs(inc) <= l/minbatch) then
-         j = jstart
-         jsource = 0
-         iisource = 0
-         iirs = 0
-         do
-            call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-            do k = 1, iirs
-               if (btest(that%a(jsource),iisource)) then ; this%a(j) = ibset(this%a(j),iir(k))
-                                                    else ; this%a(j) = ibclr(this%a(j),iir(k))
-               end if
-               iisource = iisource+1
-               if (iisource == l) then
-                  iisource = 0
-                  jsource = jsource+1
-               end if
-            end do
-            if (j == jstop) exit
-         end do
       else
          isource = 0
          do i = istart, istop, inc
@@ -550,8 +525,8 @@ contains
       if (allocated(that%a)) error stop "b_pull: destination is already allocated"
       n = (istop-istart)/inc + 1
       call b_allocate1(that,n)
-      call b_indeces(this,istart,jstart,iistart)
-      call b_indeces(this,istop ,jstop ,iistop)
+      call indeces(this,istart,jstart,iistart)
+      call indeces(this,istop ,jstop ,iistop)
       if (inc == 1) then
          if (jstart == jstop) then
             call mvbits(this%a(jstart),iistart,iistop-iistart+1,that%a(0),0)
@@ -565,26 +540,6 @@ contains
             end do
             call mvbits(this%a(jstop),0,iistart,that%a(jdest),l-iistart)
          end if
-      else if (abs(inc) <= l/minbatch) then
-         j = jstart
-         jdest = 0
-         iidest = 0
-         iirs = 0
-         do
-            call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-            v(1:iirs) = btest(this%a(j),iir(1:iirs))
-            do k = 1, iirs
-               if (v(k)) then ; that%a(jdest) = ibset(that%a(jdest),iidest)
-                         else ; that%a(jdest) = ibclr(that%a(jdest),iidest)
-               end if
-               iidest = iidest+1
-               if (iidest == l) then
-                  iidest = 0
-                  jdest = jdest+1
-               end if
-            end do
-            if (j == jstop) exit
-         end do
       else
          idest = 0
          do i = istart, istop, inc
@@ -612,21 +567,26 @@ contains
       b_allall = b_allrange(this,this%lb,this%ub,1)
    end function 
 
-   _PURE_ logical function b_allrange(this,istart,istop,inc) result(v)
+   _PURE_ recursive logical function b_allrange(this,istart,istop,inc) result(v)
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
       integer :: i, j, iistart, iistop, jstart, jstop
       integer :: iir(l), iirs
 
+      if (inc < 0) then
+         v = b_allrange(this,istop+mod(istart-istop,inc),istart,-inc)
+         return
+      end if
+      
       v = .true.
       if (sign(1,istop-istart)*sign(1,inc) < 0) return
 
       if (abs(inc) == 1) then
-         call b_indeces(this,istart,jstart,iistart)
-         call b_indeces(this,istop ,jstop ,iistop)
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          iirs = 0
-         call b_getiirs(jstart,jstop,iistart,iistop,inc,jstart,iir,iirs)
+         call getiirs(jstart,jstop,iistart,iistop,inc,jstart,iir,iirs)
          v = v .and. all( btest( this%a(j),iir(1:iirs) ) ) 
          if (.not.v) return
          if (jstop == jstart) return
@@ -635,20 +595,20 @@ contains
             if (.not.v) return
          end do
          iirs = 0
-         call b_getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
+         call getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
          v = v .and. all( btest( this%a(jstop),iir(1:iirs) ) )
       else if (abs(inc) <= l/minbatch) then
-         call b_indeces(this,istart,jstart,iistart)
-         call b_indeces(this,istop ,jstop ,iistop)
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          j = jstart
          iirs = 0
          do
-            call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
+            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
             v = v .and. all( btest( this%a(j),iir(1:iirs) ) )
             if (j == jstop) exit
             if (.not.v) return
          end do
-      else                   !!! anormalement lent (??)
+      else 
          do i = istart, istop, inc
             if (.not.b_fget0( this, i )) then
                v = .false.
@@ -664,21 +624,26 @@ contains
       b_anyall = b_anyrange(this,this%lb,this%ub,1)
    end function 
 
-   _PURE_ logical function b_anyrange(this,istart,istop,inc) result(v)
+   _PURE_ recursive logical function b_anyrange(this,istart,istop,inc) result(v)
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
       integer :: j, iistart, iistop, jstart, jstop, i
       integer :: iir(l), iirs
 
+      if (inc < 0) then
+         v = b_anyrange(this,istop+mod(istart-istop,inc),istart,-inc)
+         return
+      end if
+
       v = .false.
       if (sign(1,istop-istart)*sign(1,inc) < 0) return
 
       if (abs(inc) == 1) then
-         call b_indeces(this,istart,jstart,iistart)
-         call b_indeces(this,istop ,jstop ,iistop)
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          iirs = 0
-         call b_getiirs(jstart,jstop,iistart,iistop,inc,jstart,iir,iirs)
+         call getiirs(jstart,jstop,iistart,iistop,inc,jstart,iir,iirs)
          v = v .or. any( btest( this%a(j),iir(1:iirs) ) ) 
          if (v) return
          if (jstop == jstart) return
@@ -687,15 +652,15 @@ contains
             if (v) return
          end do
          iirs = 0
-         call b_getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
+         call getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
          v = v .or. any( btest( this%a(jstop),iir(1:iirs) ) )
       else if (abs(inc) <= l/minbatch) then
-         call b_indeces(this,istart,jstart,iistart)
-         call b_indeces(this,istop ,jstop ,iistop)
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          j = jstart
          iirs = 0
          do
-            call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
+            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
             v = v .or. any( btest( this%a(j),iir(1:iirs) ) )
             if (j == jstop) exit
             if (v) return
@@ -718,36 +683,41 @@ contains
       v = b_countrange(this,this%lb,this%ub,1)
    end function 
 
-   _PURE_ integer function b_countrange(this,istart,istop,inc) result(v)
+   _PURE_ recursive integer function b_countrange(this,istart,istop,inc) result(v)
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
       integer :: j, iistart, iistop, jstart, jstop, i
       integer :: iir(l), iirs
    
+      if (inc < 0) then
+         v = b_countrange(this,istop+mod(istart-istop,inc),istart,-inc)
+         return
+      end if
+
       v = 0
-      if (sign(1,istop-istart)*sign(1,inc) < 0) return
+      if (istop < istart) return
 
       if (abs(inc) == 1) then
-         call b_indeces(this,istart,jstart,iistart)
-         call b_indeces(this,istop ,jstop ,iistop)
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          iirs = 0
-         call b_getiirs(jstart,jstop,iistart,iistop,inc,jstart,iir,iirs)
-         v = v + count(btest(this%a(j),iir(1:iirs)))
+         call getiirs(jstart,jstop,iistart,iistop,inc,jstart,iir,iirs)
+         v = v + count(btest(this%a(jstart),iir(1:iirs)))
          if (jstop == jstart) return
          do j = jstart + inc, jstop - inc, inc
             v = v + popcnt(this%a(j))
          end do
          iirs = 0
-         call b_getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
+         call getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
          v = v + count( btest( this%a(jstop),iir(1:iirs) ) )
       else if (abs(inc) <= l/minbatch) then
-         call b_indeces(this,istart,jstart,iistart)
-         call b_indeces(this,istop ,jstop ,iistop)
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
          j = jstart
          iirs = 0
          do
-            call b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
+            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
             v = v + count(btest(this%a(j),iir(1:iirs)))
             if (j == jstop) exit
          end do
@@ -761,7 +731,7 @@ contains
    
    
    
-   _PURE_ subroutine b_indeces(this,i,j,ii)
+   _PURE_ subroutine indeces(this,i,j,ii)
       type(bitfield_t), intent(in) :: this
       integer, intent(in) :: i
       integer, intent(out) :: j, ii
@@ -771,91 +741,49 @@ contains
       j = shiftr(ii,l2l); ii = ii - shiftl(j,l2l)
    end subroutine
    
-   
-   _PURE_ subroutine b_getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
+   _PURE_ subroutine getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
       integer, intent(in) :: jstart, jstop, iistart, iistop, inc
       integer, intent(inout) :: j
-      integer, intent(inout) :: iir(l/2), iirs
+      integer, intent(inout) :: iir(l), iirs
       
-      integer :: ii
+      integer :: ii, delta
       
-      if (iirs == 0 .and. jstart == jstop) then
-         iirs = 0
-         ii = iistart
-         if (inc > 0) then
-            do
-               iirs = iirs+1 ; iir(iirs) = ii
-               ii = ii + inc ; if (ii > iistop) exit
-            end do
+      if ((iirs > 0 .or. j > jstart) .and. j < jstop) then
+         delta = iirs*inc - l
+         if (delta >= 0) then
+            iir(1:iirs) = iir(1:iirs) + delta
+            if (iir(iirs) > l-1) iirs = iirs-1
          else
-            do
-               iirs = iirs+1 ; iir(iirs) = ii
-               ii = ii + inc ; if (ii < iistop) exit
-            end do
+            iirs = iirs+1
+            iir(1:iirs) = iir(1:iirs) + delta
          end if
+         j = j+1
+      else if (iirs == 0 .and. jstart == jstop) then
+         ii = iistart
+         do
+            iirs = iirs+1 ; iir(iirs) = ii
+            ii = ii + inc ; if (ii > iistop) exit
+         end do
       else if (iirs == 0 .and. j == jstart) then
-         iirs = 0
          ii = iistart
-         if (inc > 0) then
-            do
-               iirs = iirs+1 ; iir(iirs) = ii
-               ii = ii + inc ; if (ii > l-1) exit
-            end do
-         else
-            do
-               iirs = iirs+1 ; iir(iirs) = ii
-               ii = ii + inc ; if (ii < 0) exit
-            end do
-         end if
+         do
+            iirs = iirs+1 ; iir(iirs) = ii
+            ii = ii + inc ; if (ii > l-1) exit
+         end do
+      else if (iirs > 0 .and. j == jstop) then
+         ii = iistart
+         iirs = 0
+         do
+            iirs = iirs+1 ; iir(iirs) = ii
+            ii = ii + inc ; if (ii > iistop) exit
+         end do
       else if (j == jstop) then   ! |inc|==1 in this specific case
          iirs = 0
          ii = iistop
-         if (inc == 1) then
-            do
-               iirs = iirs+1 ; iir(iirs) = ii
-               ii = ii - 1 ; if (ii < 0) exit
-            end do
-         else
-            do
-               iirs = iirs+1 ; iir(iirs) = ii
-               ii = ii + 1 ; if (ii > l-1) exit
-            end do
-         end if         
-      else
-         ii = iir(iirs) + inc
-         if (inc > 0) then
-            ii = ii - l
-            j = j + 1
-         else
-            ii = ii + l
-            j = j - 1
-         end if
-         iirs = 0
-         if (j == jstop) then
-            if (inc > 0) then
-               do
-                  iirs = iirs+1 ; iir(iirs) = ii
-                  ii = ii + inc ; if (ii > iistop) exit
-               end do
-            else
-               do
-                  iirs = iirs+1 ; iir(iirs) = ii
-                  ii = ii + inc ; if (ii < iistop) exit
-               end do
-            end if
-         else
-            if (inc > 0) then
-               do
-                  iirs = iirs+1 ; iir(iirs) = ii
-                  ii = ii + inc ; if (ii > l-1) exit
-               end do
-            else
-               do
-                  iirs = iirs+1 ; iir(iirs) = ii
-                  ii = ii + inc ; if (ii < 0) exit
-               end do
-            end if
-         end if
+         do
+            iirs = iirs+1 ; iir(iirs) = ii
+            ii = ii - 1 ; if (ii < 0) exit
+         end do
       end if
    end subroutine
 
