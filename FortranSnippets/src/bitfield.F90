@@ -96,7 +96,9 @@ implicit none
    private
 
    public :: bitfield_t, bitfield_check
-   public :: assignment(=)
+   public :: assignment(=), operator(==), operator(/=)
+   public :: operator(.not.), operator(.and.), operator(.or.)
+   public :: operator(.eqv.), operator(.neqv.)
 
    integer, parameter :: ik = selected_int_kind(r=18)
    integer, parameter :: l = bit_size(0_ik)
@@ -158,7 +160,29 @@ implicit none
    end type
 
    interface assignment(=)
-      module procedure assign_l2b_0, assign_l2b_1, assign_b2l
+      module procedure assign_b2b, assign_l2b_0, assign_l2b_1, assign_b2l
+   end interface
+
+   interface operator(.not.)
+      module procedure b_negate
+   end interface
+   interface operator(.and.)
+      module procedure b_and
+   end interface
+   interface operator(.or.)
+      module procedure b_or
+   end interface
+   interface operator(.eqv.)
+      module procedure b_eqv
+   end interface
+   interface operator(.neqv.)
+      module procedure b_neqv
+   end interface
+   interface operator(==)
+      module procedure b_equal
+   end interface
+   interface operator(/=)
+      module procedure b_notequal
    end interface
 
 contains
@@ -183,19 +207,14 @@ contains
    _PURE_ subroutine b_allocate2(this,lb,ub)
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: lb, ub
-      
-      integer :: i
-      
+            
       if (allocated(this%a)) error stop "bitfield is already allocated"
       if (ub >= lb) then
          this%n = ub - lb + 1 
          this%lb = lb
          this%ub = ub
          allocate( this%a(0:(this%n-1)/l) )
-         call indeces(this%n,j,ii)
-         do i = ii+1, l-1
-            this%a(j) = ibclr(this%a(j),i)
-         end do
+         call clear_end(this)
       else
          this%n = 0 
          allocate( this%a(0) )
@@ -252,6 +271,15 @@ contains
       end if
    end subroutine 
    
+   
+   _PURE_ subroutine assign_b2b(this,that)
+      class(bitfield_t), intent(inout) :: this
+      type(bitfield_t), intent(inout) :: that
+      
+      if (allocated(this%a) .and. this%getsize() /= that%getsize()) call b_deallocate(this)
+      if (.not.allocated(this%a)) call b_allocate1(this,that%getsize())
+      this%a(:) = that%a(:)
+   end subroutine 
    
 
    _PURE_ subroutine b_set0(this,i,v)
@@ -727,6 +755,68 @@ contains
    end function 
    
    
+   _PURE_ function b_negate(this) result(b)
+      type(bitfield_t), intent(in) :: this
+      type(bitfield_t) :: b
+            
+      call b_allocate2(b,this%lb,this%ub)
+      b%a(:) = not( this%a )
+      call clear_end(b)
+   end function
+   
+   _PURE_ function b_and(this,that) result(b)
+      type(bitfield_t), intent(in) :: this, that
+      type(bitfield_t) :: b
+            
+      call b_allocate2(b,this%lb,this%ub)
+      b%a(:) = iand( this%a, that%a )
+   end function
+   
+   _PURE_ function b_or(this,that) result(b)
+      type(bitfield_t), intent(in) :: this, that
+      type(bitfield_t) :: b
+            
+      call b_allocate2(b,this%lb,this%ub)
+      b%a(:) = ior( this%a, that%a )
+   end function
+   
+   _PURE_ function b_eqv(this,that) result(b)
+      type(bitfield_t), intent(in) :: this, that
+      type(bitfield_t) :: b
+            
+      call b_allocate2(b,this%lb,this%ub)
+      b%a(:) = ieor( this%a, that%a )
+      b%a(:) = not(b%a)
+      call clear_end(b)
+   end function
+
+   _PURE_ function b_neqv(this,that) result(b)
+      type(bitfield_t), intent(in) :: this, that
+      type(bitfield_t) :: b
+            
+      call b_allocate2(b,this%lb,this%ub)
+      b%a(:) = ieor( this%a, that%a )
+   end function
+   
+   _PURE_ logicalfunction b_equal(this,that) result(v)
+      type(bitfield_t), intent(in) :: this, that
+            
+      type (bitfield_t) :: b
+      
+      b = b_eqv(this,that)
+      v = b_allall(b)
+   end function
+
+   _PURE_ logicalfunction b_notequal(this,that) result(v)
+      type(bitfield_t), intent(in) :: this, that
+            
+      type (bitfield_t) :: b
+      
+      b = b_neqv(this,that)
+      v = b_anyall(b)
+   end function
+   
+   
    
    _PURE_ subroutine indeces(this,i,j,ii)
       type(bitfield_t), intent(in) :: this
@@ -737,6 +827,17 @@ contains
       !j = ii/l ; ii = ii - j*l
       j = shiftr(ii,l2l); ii = ii - shiftl(j,l2l)
    end subroutine
+   
+   _PURE_ subroutine clear_end(this)
+      type(bitfield_t), intent(inout) :: this
+      
+      integer :: ii, iii, j
+      
+      call indeces(this,this%ub,j,ii)
+      do iii = ii+1, l-1
+         this%a(j) = ibclr(this%a(j),iii)
+      end do
+   end subroutine   
    
    _PURE_ subroutine getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
       integer, intent(in) :: jstart, jstop, iistart, iistop, inc

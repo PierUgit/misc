@@ -359,6 +359,9 @@ if (.not.bi%any(10**9,1,-INC3) .or. .not.bi%all(1,10**9,INC3)) error stop
 
 write(*,*) "PASSED"
 
+ci = bi
+if (ci /= bi) error stop "/="
+
 END BLOCK bitfield
 
 
@@ -398,6 +401,7 @@ call tictoc(time)
 write(*,*) "PASSED (", time, "sec.)" 
 
 END BLOCK inplace_tranpose
+
 
 contains
 
