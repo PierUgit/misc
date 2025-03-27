@@ -75,7 +75,6 @@
 ! c = b%fextract(from,to,inc)   ! efficient if inc==1
 !     integer :: from, to, inc
 !     type(bitfield_t) :: c
-!     Note: in the subroutine form, c must not be allocated beforehand
 !
 ! n = b%count()                 ! efficient
 ! n = b%count(from,top,inc)     ! efficient if |inc|==1
@@ -88,6 +87,22 @@
 ! bool = b%any()                ! efficient
 ! bool = b%any(from,to,inc)     ! efficient if |inc|==1
 !     integer :: from, to, inc
+!
+! call b%negate()               ! efficient
+!                               ! (missing a version with start/stop/inc)
+! c = .not.b                    ! efficient
+!     type(bitfield_t) :: b, c
+!
+! c = b1 .and.  b2              ! efficient
+! c = b1 .or.   b2              ! efficient
+! c = b1 .eqv.  b2              ! efficient
+! c = b1 .neqv. b2              ! efficient
+!     type(bitfield_t) :: b1, b2, c
+! 
+! bool = ( b1 == b2 )           ! efficient
+! bool = ( b1 /= b2 )           ! efficient
+!     type(bitfield_t) :: b1, b2
+!     logical :: bool
 !***********************************************************************************************
 module bitfield
 !use iso_fortran_env
@@ -157,6 +172,8 @@ implicit none
       procedure, public :: extract => b_extract
       procedure, public :: fextract => b_fextract
       procedure, public :: replace => b_replace   
+      
+      procedure, public :: negate => b_negate
    end type
 
    interface assignment(=)
@@ -164,7 +181,7 @@ implicit none
    end interface
 
    interface operator(.not.)
-      module procedure b_negate
+      module procedure b_fnegate
    end interface
    interface operator(.and.)
       module procedure b_and
@@ -791,16 +808,16 @@ contains
    
    
    _PURE_ subroutine b_negate(this)
-      type(bitfield_t), intent(inout) :: this
+      class(bitfield_t), intent(inout) :: this
             
       this%a(:) = not( this%a )
-   end function
+   end subroutine
    
    _PURE_ function b_fnegate(this) result(b)
       type(bitfield_t), intent(in) :: this
       type(bitfield_t) :: b
             
-      call b_allocate2(b,this%lb,this%ub)
+      call b_allocate1(b,this%n)
       b%a(:) = not( this%a )
    end function
    
@@ -808,7 +825,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call b_allocate2(b,this%n)
+      call b_allocate1(b,this%n)
       b%a(:) = iand( this%a, that%a )
    end function
    
@@ -816,7 +833,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call b_allocate2(b,this%n)
+      call b_allocate1(b,this%n)
       b%a(:) = ior( this%a, that%a )
    end function
    
@@ -824,7 +841,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call b_allocate2(b,this%n)
+      call b_allocate1(b,this%n)
       b%a(:) = ieor( this%a, that%a )
       b%a(:) = not(b%a)
    end function
@@ -833,7 +850,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call b_allocate2(b,this%n)
+      call b_allocate1(b,this%n)
       b%a(:) = ieor( this%a, that%a )
    end function
    
