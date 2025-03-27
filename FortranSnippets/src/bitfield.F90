@@ -272,6 +272,7 @@ contains
    end subroutine 
    
    
+   
    _PURE_ subroutine assign_b2b(this,that)
       class(bitfield_t), intent(inout) :: this
       type(bitfield_t), intent(inout) :: that
@@ -280,6 +281,7 @@ contains
       if (.not.allocated(this%a)) call b_allocate1(this,that%getsize())
       this%a(:) = that%a(:)
    end subroutine 
+   
    
 
    _PURE_ subroutine b_set0(this,i,v)
@@ -433,34 +435,32 @@ contains
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_getrange1(): out of bound indeces" 
 
-      if (abs(inc) <= l/minbatch) then
-         if (inc > 0) then
-            call indeces( this, istart, jstart, iistart)
-            call indeces( this, istop , jstop , iistop)
-            j = jstart
-            i1 = 1
-            iirs = 0
-            do
-               call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-               i2 = i1+iirs-1
-               v(i1:i2) = btest(this%a(j),iir(1:iirs))
-               if (j == jstop) exit
-               i1 = i2+1
-            end do
-         else
-            call indeces( this, istart,                       jstart, iistart )
-            call indeces( this, istop+mod(istart-istop,-inc), jstop,  iistop  )
-            j = jstop
-            i1 = size(v)
-            iirs = 0
-            do
-               call getiirs(jstop,jstart,iistop,iistart,-inc,j,iir,iirs)
-               i2 = i1-iirs+1
-               v(i1:i2:-1) = btest(this%a(j),iir(1:iirs))
-               if (j == jstart) exit
-               i1 = i2-1
-            end do
-         end if
+      if (0 < inc .and. inc <= l/minbatch) then
+         call indeces( this, istart, jstart, iistart)
+         call indeces( this, istop , jstop , iistop)
+         j = jstart
+         i1 = 1
+         iirs = 0
+         do
+            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
+            i2 = i1+iirs-1
+            v(i1:i2) = btest(this%a(j),iir(1:iirs))
+            if (j == jstop) exit
+            i1 = i2+1
+         end do
+      else if (0 < -inc .and. -inc <= l/minbatch) then
+         call indeces( this, istart,                       jstart, iistart )
+         call indeces( this, istop+mod(istart-istop,-inc), jstop,  iistop  )
+         j = jstop
+         i1 = size(v)
+         iirs = 0
+         do
+            call getiirs(jstop,jstart,iistop,iistart,-inc,j,iir,iirs)
+            i2 = i1-iirs+1
+            v(i1:i2:-1) = btest(this%a(j),iir(1:iirs))
+            if (j == jstart) exit
+            i1 = i2-1
+         end do
       else
          iv = 0
          do i = istart, istop, inc
@@ -557,8 +557,8 @@ contains
       
       if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
          error stop "b_extract(): out of bound indeces" 
-      if (allocated(that%a)) error stop "b_pull: destination is already allocated"
-      
+      if (allocated(that%a)) call b_deallocate( that )
+         
       n = (istop-istart)/inc + 1
       if (n <= 0) then
          call b_allocate1(that,0)
@@ -608,12 +608,63 @@ contains
       b_allall = b_allrange(this,this%lb,this%ub,1)
    end function 
 
-   _PURE_ logical function b_allrange(this,istart,istop,inc) result(v)
+   _PURE_ recursive logical function b_allrange(this,istart,istop,inc) result(v)
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
-      v = anyall(this,istart,istop,inc,.true.)
+      integer :: j, iistart, iistop, jstart, jstop, i
+      integer :: iir(l), iirs
+      integer(ik) :: a
+
+      if (inc < 0) then
+         v = b_allrange(this,istop+mod(istart-istop,-inc),istart,-inc)
+         return
+      end if
+
+      if (istop < istart) return
+
+      if (inc == 1) then
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
+         if (jstart == jstop) then
+            a = ones
+            call mvbits( this%a(jstart), iistart, iistop-iistart+1, a, iistart )
+            v = a == ones
+         else
+            a = ones
+            call mvbits( this%a(jstart), iistart, l-iistart, a, iistart )
+            v = a == ones
+            if (.not.v) return
+            do j = jstart + 1, jstop - 1
+               v = v .and. this%a(j) == ones
+               if (.not.v) return
+            end do
+            a = ones
+            call mvbits( this%a(jstop), 0, iistop+1, a, 0 )
+            v = v .and. a == ones
+         end if
+      else if (inc <= l/minbatch) then
+         call indeces(this,istart,jstart,iistart)
+         call indeces(this,istop ,jstop ,iistop)
+         v = .true.
+         j = jstart
+         iirs = 0
+         do
+            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
+            v = v .and. all( btest( this%a(j),iir(1:iirs) ) )
+            if (.not.v) return
+            if (j == jstop) exit
+         end do
+      else
+         v = .false.
+         do i = istart, istop, inc
+            if (.not.b_fget0( this, i )) return
+         end do
+         v = .true.
+      end if
    end function 
+
+
 
    _PURE_ logical function b_anyall(this)
       class(bitfield_t), intent(in) :: this
@@ -621,85 +672,62 @@ contains
       b_anyall = b_anyrange(this,this%lb,this%ub,1)
    end function 
 
-   _PURE_ logical function b_anyrange(this,istart,istop,inc) result(v)
+   _PURE_ recursive logical function b_anyrange(this,istart,istop,inc) result(v)
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
-      v = anyall(this,istart,istop,inc,.false.)
-   end function 
-   
-   _PURE_ recursive logical function anyall(this,istart,istop,inc,is_all) result(v)
-      type(bitfield_t), intent(in) :: this
-      integer, intent(in) :: istart, istop, inc
-      logical, intent(in) :: is_all
-      
       integer :: j, iistart, iistop, jstart, jstop, i
       integer :: iir(l), iirs
+      integer(ik) :: a
 
       if (inc < 0) then
-         v = anyall(this,istop+mod(istart-istop,-inc),istart,-inc,is_all)
+         v = b_anyrange(this,istop+mod(istart-istop,-inc),istart,-inc)
          return
       end if
 
-      v = is_all
       if (istop < istart) return
 
       if (inc == 1) then
          call indeces(this,istart,jstart,iistart)
          call indeces(this,istop ,jstop ,iistop)
-         iirs = 0
-         call getiirs(jstart,jstop,iistart,iistop,inc,jstart,iir,iirs)
-         if (is_all) then
-            v = v .and. all( btest( this%a(j),iir(1:iirs) ) ) 
-            if (.not.v) return
+         if (jstart == jstop) then
+            a = zeros
+            call mvbits( this%a(jstart), iistart, iistop-iistart+1, a, iistart )
+            v = a /= zeros
          else
-            v = v .or. any( btest( this%a(j),iir(1:iirs) ) ) 
+            a = zeros
+            call mvbits( this%a(jstart), iistart, l-iistart, a, iistart )
+            v = a /= zeros
             if (v) return
-         end if
-         if (jstop == jstart) return
-         if (is_all) then
-            do j = jstart + inc, jstop - inc, inc
-               v = v .and. this%a(j) == ones
-               if (.not.v) return
-            end do
-         else
-            do j = jstart + inc, jstop - inc, inc
+            do j = jstart + 1, jstop - 1
                v = v .or. this%a(j) /= zeros
                if (v) return
             end do
-         end if
-         iirs = 0
-         call getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
-         if (is_all) then
-            v = v .and. all( btest( this%a(jstop),iir(1:iirs) ) )
-         else
-            v = v .or. any( btest( this%a(jstop),iir(1:iirs) ) )
+            a = zeros
+            call mvbits( this%a(jstop), 0, iistop+1, a, 0 )
+            v = v .or. a /= zeros
          end if
       else if (inc <= l/minbatch) then
          call indeces(this,istart,jstart,iistart)
          call indeces(this,istop ,jstop ,iistop)
+         v = .false.
          j = jstart
          iirs = 0
          do
             call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-            if (is_all) then
-               v = v .and. all( btest( this%a(j),iir(1:iirs) ) )
-               if (.not.v) return
-            else
-               v = v .or. any( btest( this%a(j),iir(1:iirs) ) )
-               if (v) return
-            end if
+            v = v .or. any( btest( this%a(j),iir(1:iirs) ) )
+            if (v) return
             if (j == jstop) exit
          end do
       else
+         v = .true.
          do i = istart, istop, inc
-            if (b_fget0( this, i ) .neqv. is_all) then
-               v = .not.is_all
-               return
-            end if
+            if (b_fget0( this, i )) return
          end do
+         v = .false.
       end if
    end function 
+
 
 
    _PURE_ integer function b_countall(this) result(v)
@@ -714,41 +742,48 @@ contains
       
       integer :: j, iistart, iistop, jstart, jstop, i
       integer :: iir(l), iirs
+      integer(ik) :: a
    
       if (inc < 0) then
          v = b_countrange(this,istop+mod(istart-istop,-inc),istart,-inc)
          return
       end if
 
-      v = 0
       if (istop < istart) return
 
-      if (abs(inc) == 1) then
+      if (inc == 1) then
          call indeces(this,istart,jstart,iistart)
          call indeces(this,istop ,jstop ,iistop)
-         iirs = 0
-         call getiirs(jstart,jstop,iistart,iistop,inc,jstart,iir,iirs)
-         v = v + count(btest(this%a(jstart),iir(1:iirs)))
-         if (jstop == jstart) return
-         do j = jstart + inc, jstop - inc, inc
-            v = v + popcnt(this%a(j))
-         end do
-         iirs = 0
-         call getiirs(jstart,jstop,iistart,iistop,inc,jstop,iir,iirs)
-         v = v + count( btest( this%a(jstop),iir(1:iirs) ) )
-      else if (abs(inc) <= l/minbatch) then
+         if (jstart == jstop) then
+            a = zeros
+            call mvbits( this%a(jstart), iistart, iistop-iistart+1, a, iistart )
+            v = popcnt( a )
+         else
+            a = zeros
+            call mvbits( this%a(jstart), iistart, l-iistart, a, iistart )
+            v = popcnt( a )
+            do j = jstart + 1, jstop - 1
+               v = v + popcnt( this%a(j) )
+            end do
+            a = zeros
+            call mvbits( this%a(jstop), 0, iistop+1, a, 0 )
+            v = v + popcnt( a )
+         end if
+      else if (inc <= l/minbatch) then
          call indeces(this,istart,jstart,iistart)
          call indeces(this,istop ,jstop ,iistop)
+         v = 0
          j = jstart
          iirs = 0
          do
             call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-            v = v + count(btest(this%a(j),iir(1:iirs)))
+            v = v + count( btest( this%a(j),iir(1:iirs) ) )
             if (j == jstop) exit
          end do
       else
+         v = 0
          do i = istart, istop, inc
-            if (b_fget0( this, i )) v = v + 1
+            if (b_fget0( this, i )) v = v+1
          end do
       end if
 
