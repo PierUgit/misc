@@ -790,20 +790,25 @@ contains
    end function 
    
    
-   _PURE_ function b_negate(this) result(b)
+   _PURE_ subroutine b_negate(this)
+      type(bitfield_t), intent(inout) :: this
+            
+      this%a(:) = not( this%a )
+   end function
+   
+   _PURE_ function b_fnegate(this) result(b)
       type(bitfield_t), intent(in) :: this
       type(bitfield_t) :: b
             
       call b_allocate2(b,this%lb,this%ub)
       b%a(:) = not( this%a )
-      call clear_end(b)
    end function
    
    _PURE_ function b_and(this,that) result(b)
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call b_allocate2(b,this%lb,this%ub)
+      call b_allocate2(b,this%n)
       b%a(:) = iand( this%a, that%a )
    end function
    
@@ -811,7 +816,7 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call b_allocate2(b,this%lb,this%ub)
+      call b_allocate2(b,this%n)
       b%a(:) = ior( this%a, that%a )
    end function
    
@@ -819,36 +824,55 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call b_allocate2(b,this%lb,this%ub)
+      call b_allocate2(b,this%n)
       b%a(:) = ieor( this%a, that%a )
       b%a(:) = not(b%a)
-      call clear_end(b)
    end function
 
    _PURE_ function b_neqv(this,that) result(b)
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      call b_allocate2(b,this%lb,this%ub)
+      call b_allocate2(b,this%n)
       b%a(:) = ieor( this%a, that%a )
    end function
    
    _PURE_ logicalfunction b_equal(this,that) result(v)
       type(bitfield_t), intent(in) :: this, that
             
-      type (bitfield_t) :: b
+      integer :: j, j1, ii1, j2, ii2
+      integer(ik) :: a1, a2
       
-      b = b_eqv(this,that)
-      v = b_allall(b)
+      call indeces( this, this%ub, j1, ii1 )
+      call indeces( that, that%ub, j2, ii2 )
+      a1 = zeros ; a2 = zeros
+      call mvbits( this%a(j1), 0, ii1+1, a1, 0 )
+      call mvbits( this%a(j2), 0, ii2+1, a2, 0 )
+      v = a1 == a2
+      if (.not.v) return
+      do j = 1, size(this%a) - 1
+         v = v .and. this%a(j) == that%a(j)
+         if (.not.v) return
+      end do
    end function
 
    _PURE_ logicalfunction b_notequal(this,that) result(v)
       type(bitfield_t), intent(in) :: this, that
             
-      type (bitfield_t) :: b
+      integer :: j, j1, ii1, j2, ii2
+      integer(ik) :: a1, a2
       
-      b = b_neqv(this,that)
-      v = b_anyall(b)
+      call indeces( this, this%ub, j1, ii1 )
+      call indeces( that, that%ub, j2, ii2 )
+      a1 = zeros ; a2 = zeros
+      call mvbits( this%a(j1), 0, ii1+1, a1, 0 )
+      call mvbits( this%a(j2), 0, ii2+1, a2, 0 )
+      v = a1 /= a2
+      if (v) return
+      do j = 1, size(this%a) - 1
+         v = v .or. this%a(j) /= that%a(j)
+         if (v) return
+      end do
    end function
    
    
