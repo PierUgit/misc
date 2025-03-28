@@ -176,6 +176,12 @@ implicit none
       procedure, public :: fextract => b_fextract
       procedure, public :: replace => b_replace   
       
+      procedure, public :: reverse_extract => b_reverse_extract
+      procedure, public :: freverse_extract => b_freverse_extract
+      
+      procedure, public :: reverse => b_reverse
+      procedure, public :: is_reversed => b_is_reversed
+      
       procedure :: notall => b_notall
       procedure :: notrange => b_notrange
       generic, public :: not => notall, notrange
@@ -630,8 +636,68 @@ contains
       call b_extract(this,istart,istop,inc,that)
    end function
    
+   _PURE_ subroutine b_reverse_extract(this,istart,istop,that)
+      class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: istart, istop
+      type(bitfield_t), intent(inout) :: that
       
+      integer :: k, i, iistart, iistop, jstart, jstop, j, jdest, iidest, n, idest
+      integer :: iir(l), iirs
+      logical :: v(l)
       
+      if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
+         error stop "b_reverse_extract(): out of bound indeces" 
+      if (this%storinc < 0) error stop "b_reverse_extract(): reversed input bitfield" 
+      
+      if (allocated(that%a)) call b_deallocate( that )
+         
+      n = (istart-istop) + 1
+      if (n <= 0) then
+         call b_allocate1(that,0)
+         return
+      end if
+      
+      call b_allocate1(that,n)
+      that%storinc = -1
+      that%stork = -that%ub
+      call indeces(this,istart,jstart,iistart)
+      call indeces(this,istop ,jstop ,iistop)
+      if (jstart == jstop) then
+         call mvbits(this%a(jstart),iistop,iistart-iistop+1,that%a(0),0)
+      else
+         jdest = -1
+         do j = jstop, jstart
+            if (jdest >= 0) &
+               call mvbits(this%a(j),0,iistop,that%a(jdest),l-iistop)
+            jdest = jdest + 1 ; 
+            if (jdest <= ubound(that%a,1)) &
+               call mvbits(this%a(j),iistop,l-iistop,that%a(jdest),0)
+         end do
+      end if
+   end subroutine 
+   
+   _PURE_ function b_freverse_extract(this,istart,istop) result(that)
+      class(bitfield_t), intent(in) :: this
+      integer, intent(in) :: istart, istop
+      type(bitfield_t) :: that
+      
+      call b_reverse_extract(this,istart,istop,that)
+   end function      
+   
+   
+   
+   _PURE_ subroutine b_reverse(this)
+      class(bitfield_t), intent(inout) :: this
+      
+      this%storinc = -this%storinc
+      this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
+   end subroutine b_reverse
+   
+   _PURE_ logical function b_is_reversed(this)
+      class(bitfield_t), intent(inout) :: this
+      
+      b_is_reversed = this%storinc > 0
+   end function b_is_reversed   
 
 
    _PURE_ logical function b_allall(this)
