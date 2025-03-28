@@ -870,9 +870,12 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_and(): reversed input bitfield" 
+      if (this%storinc * that%storinc < 0) &
+         error stop "b_and(): the input bitfields don't have the same storage order" 
 
       call b_allocate1(b,this%n)
+      b%storinc = this%storinc
+      b%stork = merge( b%lb, -b%ub, b%storinc > 0 )
       b%a(:) = iand( this%a, that%a )
    end function
    
@@ -880,9 +883,12 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_or(): reversed input bitfield" 
+      if (this%storinc * that%storinc < 0) &
+         error stop "b_or(): the input bitfields don't have the same storage order" 
 
       call b_allocate1(b,this%n)
+      b%storinc = this%storinc
+      b%stork = merge( b%lb, -b%ub, b%storinc > 0 )
       b%a(:) = ior( this%a, that%a )
    end function
    
@@ -890,9 +896,12 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_eqv(): reversed input bitfield" 
+      if (this%storinc * that%storinc < 0) &
+         error stop "b_eqv(): the input bitfields don't have the same storage order" 
 
       call b_allocate1(b,this%n)
+      b%storinc = this%storinc
+      b%stork = merge( b%lb, -b%ub, b%storinc > 0 )
       b%a(:) = ieor( this%a, that%a )
       b%a(:) = not(b%a)
    end function
@@ -901,9 +910,12 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
-      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_neqv(): reversed input bitfield" 
+      if (this%storinc * that%storinc < 0) &
+         error stop "b_neqv(): the input bitfields don't have the same storage order" 
 
       call b_allocate1(b,this%n)
+      b%storinc = this%storinc
+      b%stork = merge( b%lb, -b%ub, b%storinc > 0 )
       b%a(:) = ieor( this%a, that%a )
    end function
    
@@ -913,10 +925,11 @@ contains
       integer :: j, j1, ii1, j2, ii2
       integer(ik) :: a1, a2
       
-      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_equal(): reversed input bitfield" 
+      if (this%storinc * that%storinc < 0) &
+         error stop "b_equal(): the input bitfields don't have the same storage order" 
 
-      call indeces( this, this%ub, j1, ii1 )
-      call indeces( that, that%ub, j2, ii2 )
+      call indeces( this, merge( this%ub, this%lb, this%storinc > 0 ), j1, ii1 )
+      call indeces( that, merge( that%ub, that%lb, that%storinc > 0 ), j2, ii2 )
       a1 = zeros ; a2 = zeros
       call mvbits( this%a(j1), 0, ii1+1, a1, 0 )
       call mvbits( this%a(j2), 0, ii2+1, a2, 0 )
@@ -934,10 +947,11 @@ contains
       integer :: j, j1, ii1, j2, ii2
       integer(ik) :: a1, a2
       
-      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_notequal(): reversed input bitfield" 
+      if (this%storinc * that%storinc < 0) &
+         error stop "b_nequal(): the input bitfields don't have the same storage order" 
 
-      call indeces( this, this%ub, j1, ii1 )
-      call indeces( that, that%ub, j2, ii2 )
+      call indeces( this, merge( this%ub, this%lb, this%storinc > 0 ), j1, ii1 )
+      call indeces( that, merge( that%ub, that%lb, that%storinc > 0 ), j2, ii2 )
       a1 = zeros ; a2 = zeros
       call mvbits( this%a(j1), 0, ii1+1, a1, 0 )
       call mvbits( this%a(j2), 0, ii2+1, a2, 0 )
