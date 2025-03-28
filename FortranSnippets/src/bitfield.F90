@@ -580,6 +580,35 @@ contains
       end if
    end subroutine 
 
+   _PURE_ subroutine b_reverse_replace(this,istart,istop,that)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: istart, istop
+      type(bitfield_t), intent(in) :: that
+      
+      integer :: iistart, iistop, jstart, jstop, j, jsource
+      
+      if (that%getsize() <= 0) return
+      if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
+         error stop "b_reverse_replace(): out of bound bounds" 
+      if (this%storinc < 0) error stop "b_reverse_replace(): reversed destination bitfield" 
+      if (that%storinc > 0) error stop "b_reverse_replace(): not reversed source bitfield" 
+      
+      call indeces(this,istart,jstart,iistart)
+      call indeces(this,istop,jstop ,iistop)
+      if (jstart == jstop) then
+         call mvbits(that%a(0),0,iistart-iistop+1,this%a(jstop),iistop)
+      else
+         jsource = -1
+         do j = jstop, jstart
+            if (jsource >= 0) &
+               call mvbits(that%a(jsource),l-iistop,iistop,this%a(j),0)
+            jsource = jsource + 1
+            if (jsource <= ubound(that%a,1)) &
+               call mvbits(that%a(jsource),0,l-iistop,this%a(j),iistop)
+         end do
+      end if
+   end subroutine 
+
 
 
    _PURE_ subroutine b_extract(this,istart,istop,inc,that)
@@ -641,9 +670,7 @@ contains
       integer, intent(in) :: istart, istop
       type(bitfield_t), intent(inout) :: that
       
-      integer :: k, i, iistart, iistop, jstart, jstop, j, jdest, iidest, n, idest
-      integer :: iir(l), iirs
-      logical :: v(l)
+      integer :: iistart, iistop, jstart, jstop, j, jdest, n
       
       if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
          error stop "b_reverse_extract(): out of bound indeces" 
