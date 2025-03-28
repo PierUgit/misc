@@ -32,77 +32,106 @@
 ! call b%setlb(lb)
 ! call b%setub(ub)
 !     integer :: n, lb, ub
+!     *Note:* b can be a reversed bitfield
 !
 ! call b%set(bool)              ! efficient if bool is a scalar
 ! call b%set(pos,bool)          ! not efficient
 ! call b%set(from,to,inc,bool)  ! efficient if bool is a scalar and |inc|==1
 !     logical :: bool[(:)]
 !     integer :: pos, from, top, inc
-!     Note: b must always be allocated beforehand
-!     Note: setting from a logical array is highly inefficient
+!     *Note:* b must always be allocated beforehand
+!     *Note:* b can be a reversed bitfield iif bool is a scalar
 !
-! b = bool                      ! efficient if bool is a scalar
+! b = bool                      ! efficient
 !     type(bitfield_t) :: b
-!     logical :: bool[(:)]
-!     Note: allocation on assignement can occur if bool is rank 1
+!     logical :: bool
+!     *Note:* b can be a reversed bitfield
+! b = bool                      ! not efficient
+!     type(bitfield_t) :: b
+!     logical :: bool(:)
+!     Note: allocation on assignement can occur
+!     *Note:* b cannot be a reversed bitfield
 !
 ! call b%get(pos,bool)          ! not efficient
 !     logical :: bool           
+!     *Note:* b can be a reversed bitfield
 ! call b%get(bool)              ! not efficient
 ! call b%get(from,to,inc,bool)  ! not efficient
 !     logical :: bool(:)
 !     integer :: pos, frompos, topos
-!     Note: bool(:) must be allocated beforehand
+!     *Note:* bool(:) must be allocated beforehand
+!     *Note:* b cannot be a reversed bitfield
 !
 ! bool = b%fget(pos)            ! not efficient
 !     logical :: bool
+!     *Note:* b can be a reversed bitfield
 ! bool = b%fget()               ! not efficient
 ! bool = b%fget(from,to,inc)    ! not efficient
 !     logical :: bool(:)
 !     integer :: pos, from, top, inc
-!     Note: bool(:) must be allocated beforehand
+!     *Note:* bool(:) must be allocated beforehand
+!     *Note:* b cannot be a reversed bitfield
 !
 ! bool = b                      ! not efficient
 !     type(bitfield_t) :: b
 !     logical, allocatable :: bool(:)
-!     Note: works only for an allocatable LHS; allocation on assignement can occur
+!     *Note:* works only for an allocatable LHS; allocation on assignement can occur
+!     *Note:* b cannot be a reversed bitfield
 !
-! call b%replace(from,to,inc,c) ! efficient if inc==1
+! call b%extract(from,to,inc,c)     ! efficient if inc==1
+! c = b%fextract(from,to,inc)       ! efficient if inc==1
+! call b%reverse_extract(from,to,c) ! efficient
+! c = b%freverse_extract(from,to)   ! efficient
 !     integer :: from, to, inc
 !     type(bitfield_t) :: c
+!     *Note:* b cannot be a reversed bitfield
+!             c is a reversed bitfield in the two latter cases
 !
-! call b%extract(from,to,inc,c) ! efficient if inc==1
-! c = b%fextract(from,to,inc)   ! efficient if inc==1
+! call b%reverse()                  ! efficient
+! bool = b%is_reversed()
+!     logical :: bool
+!     *Note:* b can be a reversed bitfield
+!
+! call b%replace(from,to,inc,c)     ! efficient if inc==1
+! call b%reverse_replace(from,to,c) ! efficient
 !     integer :: from, to, inc
 !     type(bitfield_t) :: c
+!     *Note:* b cannot be a reversed bitfield
+!             c must be reversed bitfield in the latter case
 !
 ! n = b%count()                 ! efficient
 ! n = b%count(from,top,inc)     ! efficient if |inc|==1
 !     integer :: from, to, inc
+!     *Note:* b cannot be a reversed bitfield
 !
 ! bool = b%all()                ! efficient
 ! bool = b%all(from,to,inc)     ! efficient if |inc|==1
 !     integer :: from, to, inc
+!     *Note:* b cannot be a reversed bitfield
 !
 ! bool = b%any()                ! efficient
 ! bool = b%any(from,to,inc)     ! efficient if |inc|==1
 !     integer :: from, to, inc
+!     *Note:* b cannot be a reversed bitfield
 !
 ! call b%not()                  ! efficient
 ! call b%not(from,to,inc)       ! efficient if |inc|==1
 ! c = .not.b                    ! efficient
 !     type(bitfield_t) :: b, c
+!     *Note:* b can be a reversed bitfield
 !
 ! c = b1 .and.  b2              ! efficient
 ! c = b1 .or.   b2              ! efficient
 ! c = b1 .eqv.  b2              ! efficient
 ! c = b1 .neqv. b2              ! efficient
 !     type(bitfield_t) :: b1, b2, c
+!     *Note:* b1 and b2 must be both reversed or both not reversed bitfields
 ! 
 ! bool = ( b1 == b2 )           ! efficient
 ! bool = ( b1 /= b2 )           ! efficient
 !     type(bitfield_t) :: b1, b2
 !     logical :: bool
+!     *Note:* b1 and b2 must be both reversed or both not reversed bitfields
 !***********************************************************************************************
 module bitfield
 !use iso_fortran_env
@@ -242,12 +271,22 @@ contains
          this%n = ub - lb + 1 
          this%lb = lb
          this%ub = ub
+         this%storinc = 1
          this%stork = lb
          allocate( this%a(0:(this%n-1)/l) )
       else
          this%n = 0 
          allocate( this%a(0) )
       end if
+   end subroutine 
+
+   _PURE_ subroutine b_allocate3(this,lb,ub,si)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: lb, ub, si
+            
+      call b_allocate2(this,lb,ub)
+      this%storinc = si
+      this%stork = merge( lb, -ub, si > 0 )
    end subroutine 
 
    _PURE_ subroutine b_deallocate(this)
@@ -685,9 +724,7 @@ contains
          return
       end if
       
-      call b_allocate1(that,n)
-      that%storinc = -1
-      that%stork = -that%ub
+      call b_allocate3(that,1,n,-1)
       call indeces(this,istart,jstart,iistart)
       call indeces(this,istop ,jstop ,iistop)
       if (jstart == jstop) then
@@ -873,9 +910,7 @@ contains
       if (this%storinc * that%storinc < 0) &
          error stop "b_and(): the input bitfields don't have the same storage order" 
 
-      call b_allocate1(b,this%n)
-      b%storinc = this%storinc
-      b%stork = merge( b%lb, -b%ub, b%storinc > 0 )
+      call b_allocate3(b,1,this%n,this%storinc)
       b%a(:) = iand( this%a, that%a )
    end function
    
@@ -886,9 +921,7 @@ contains
       if (this%storinc * that%storinc < 0) &
          error stop "b_or(): the input bitfields don't have the same storage order" 
 
-      call b_allocate1(b,this%n)
-      b%storinc = this%storinc
-      b%stork = merge( b%lb, -b%ub, b%storinc > 0 )
+      call b_allocate3(b,1,this%n,this%storinc)
       b%a(:) = ior( this%a, that%a )
    end function
    
@@ -899,9 +932,7 @@ contains
       if (this%storinc * that%storinc < 0) &
          error stop "b_eqv(): the input bitfields don't have the same storage order" 
 
-      call b_allocate1(b,this%n)
-      b%storinc = this%storinc
-      b%stork = merge( b%lb, -b%ub, b%storinc > 0 )
+      call b_allocate3(b,1,this%n,this%storinc)
       b%a(:) = ieor( this%a, that%a )
       b%a(:) = not(b%a)
    end function
@@ -913,9 +944,7 @@ contains
       if (this%storinc * that%storinc < 0) &
          error stop "b_neqv(): the input bitfields don't have the same storage order" 
 
-      call b_allocate1(b,this%n)
-      b%storinc = this%storinc
-      b%stork = merge( b%lb, -b%ub, b%storinc > 0 )
+      call b_allocate3(b,1,this%n,this%storinc)
       b%a(:) = ieor( this%a, that%a )
    end function
    
