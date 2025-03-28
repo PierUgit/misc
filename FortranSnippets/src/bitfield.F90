@@ -118,6 +118,7 @@ implicit none
    integer, parameter :: ik = selected_int_kind(r=18)
    integer, parameter :: l = bit_size(0_ik)
    integer, parameter :: l2l = nint(log(real(l))/log(2.0))
+   integer, parameter :: ll = 64*l
    integer, parameter :: minbatch = 10
    integer(ik), parameter :: zeros = 0
    integer(ik), parameter :: ones = not(zeros)
@@ -351,7 +352,7 @@ contains
          call indeces(this,istart,jstart,iistart)
          call indeces(this,istop ,jstop ,iistop)
          if (jstart == jstop) then
-            call mvbits( a, 0, istop-istart+1, this%a(jstart), iistart )
+            call mvbits( a, 0, iistop-iistart+1, this%a(jstart), iistart )
          else
             call mvbits( a, 0, l-iistart, this%a(jstart), iistart )
             this%a(jstart+1:jstop-1) = a
@@ -545,14 +546,14 @@ contains
          if (jstart == jstop) then
             call mvbits(that%a(0),0,iistop-iistart+1,this%a(jstart),iistart)
          else
-            call mvbits(that%a(0),0,l-iistart,this%a(jstart),iistart)
-            jsource = 0
-            do j = jstart+1, jstop-1
-               call mvbits(that%a(jsource),l-iistart,iistart,this%a(j),0)
+            jsource = -1
+            do j = jstart, jstop
+               if (jsource >= 0) &
+                  call mvbits(that%a(jsource),l-iistart,iistart,this%a(j),0)
                jsource = jsource + 1
-               call mvbits(that%a(jsource),0,l-iistart,this%a(j),iistart)
+               if (jsource <= ubound(that%a,1)) &
+                  call mvbits(that%a(jsource),0,l-iistart,this%a(j),iistart)
             end do
-            call mvbits(that%a(jsource),l-iistart,iistart,this%a(jstop),0)
          end if
       else
          isource = 0
@@ -591,14 +592,14 @@ contains
          if (jstart == jstop) then
             call mvbits(this%a(jstart),iistart,iistop-iistart+1,that%a(0),0)
          else
-            call mvbits(this%a(jstart),iistart,l-iistart,that%a(0),0)
-            jdest = 0
-            do j = jstart+1, jstop-1
-               call mvbits(this%a(j),0,iistart,that%a(jdest),l-iistart)
-               jdest = jdest + 1
-               call mvbits(this%a(j),iistart,l-iistart,that%a(jdest),0)
+            jdest = -1
+            do j = jstart, jstop
+               if (jdest >= 0) &
+                  call mvbits(this%a(j),0,iistart,that%a(jdest),l-iistart)
+               jdest = jdest + 1 ; 
+               if (jdest <= ubound(that%a,1)) &
+                  call mvbits(this%a(j),iistart,l-iistart,that%a(jdest),0)
             end do
-            call mvbits(this%a(jstop),0,iistart,that%a(jdest),l-iistart)
          end if
       else
          idest = 0
@@ -631,56 +632,24 @@ contains
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
-      integer :: j, iistart, iistop, jstart, jstop, i
-      integer :: iir(l), iirs
-      integer(ik) :: a
-
+      integer :: kstart, kstop
+      type(bitfield_t) :: bb
+   
       if (inc < 0) then
          v = b_allrange(this,istop+mod(istart-istop,-inc),istart,-inc)
-         return
-      end if
-
-      if (istop < istart) return
-
-      if (inc == 1) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
-         if (jstart == jstop) then
-            a = ones
-            call mvbits( this%a(jstart), iistart, iistop-iistart+1, a, iistart )
-            v = a == ones
-         else
-            a = ones
-            call mvbits( this%a(jstart), iistart, l-iistart, a, iistart )
-            v = a == ones
-            if (.not.v) return
-            do j = jstart + 1, jstop - 1
-               v = v .and. this%a(j) == ones
-               if (.not.v) return
-            end do
-            a = ones
-            call mvbits( this%a(jstop), 0, iistop+1, a, 0 )
-            v = v .and. a == ones
-         end if
-      else if (inc <= l/minbatch) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
-         v = .true.
-         j = jstart
-         iirs = 0
-         do
-            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-            v = v .and. all( btest( this%a(j),iir(1:iirs) ) )
-            if (.not.v) return
-            if (j == jstop) exit
-         end do
       else
-         v = .false.
-         do i = istart, istop, inc
-            if (.not.b_fget0( this, i )) return
-         end do
          v = .true.
-      end if
+         kstart = istart
+         do while (kstart <= istop)
+            kstop = min( kstart + (ll-1)*inc, istop )
+            call b_extract( this, kstart, kstop, inc, bb )
+            call set_end( bb )
+            v = v .and. all( bb%a == ones )
+            if (.not.v) return
+            kstart = kstop + inc
+         end do         
+      end if      
+
    end function 
 
 
@@ -695,56 +664,24 @@ contains
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
-      integer :: j, iistart, iistop, jstart, jstop, i
-      integer :: iir(l), iirs
-      integer(ik) :: a
-
+      integer :: kstart, kstop
+      type(bitfield_t) :: bb
+   
       if (inc < 0) then
          v = b_anyrange(this,istop+mod(istart-istop,-inc),istart,-inc)
-         return
-      end if
-
-      if (istop < istart) return
-
-      if (inc == 1) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
-         if (jstart == jstop) then
-            a = zeros
-            call mvbits( this%a(jstart), iistart, iistop-iistart+1, a, iistart )
-            v = a /= zeros
-         else
-            a = zeros
-            call mvbits( this%a(jstart), iistart, l-iistart, a, iistart )
-            v = a /= zeros
-            if (v) return
-            do j = jstart + 1, jstop - 1
-               v = v .or. this%a(j) /= zeros
-               if (v) return
-            end do
-            a = zeros
-            call mvbits( this%a(jstop), 0, iistop+1, a, 0 )
-            v = v .or. a /= zeros
-         end if
-      else if (inc <= l/minbatch) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
-         v = .false.
-         j = jstart
-         iirs = 0
-         do
-            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-            v = v .or. any( btest( this%a(j),iir(1:iirs) ) )
-            if (v) return
-            if (j == jstop) exit
-         end do
       else
-         v = .true.
-         do i = istart, istop, inc
-            if (b_fget0( this, i )) return
-         end do
          v = .false.
-      end if
+         kstart = istart
+         do while (kstart <= istop)
+            kstop = min( kstart + (ll-1)*inc, istop )
+            call b_extract( this, kstart, kstop, inc, bb )
+            call clear_end( bb )
+            v = v .or. any( bb%a /= zeros )
+            if (v) return
+            kstart = kstop + inc
+         end do         
+      end if      
+
    end function 
 
 
@@ -759,52 +696,22 @@ contains
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop, inc
       
-      integer :: j, iistart, iistop, jstart, jstop, i
-      integer :: iir(l), iirs
-      integer(ik) :: a
+      integer :: kstart, kstop
+      type(bitfield_t) :: bb
    
       if (inc < 0) then
          v = b_countrange(this,istop+mod(istart-istop,-inc),istart,-inc)
-         return
-      end if
-
-      if (istop < istart) return
-
-      if (inc == 1) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
-         if (jstart == jstop) then
-            a = zeros
-            call mvbits( this%a(jstart), iistart, iistop-iistart+1, a, iistart )
-            v = popcnt( a )
-         else
-            a = zeros
-            call mvbits( this%a(jstart), iistart, l-iistart, a, iistart )
-            v = popcnt( a )
-            do j = jstart + 1, jstop - 1
-               v = v + popcnt( this%a(j) )
-            end do
-            a = zeros
-            call mvbits( this%a(jstop), 0, iistop+1, a, 0 )
-            v = v + popcnt( a )
-         end if
-      else if (inc <= l/minbatch) then
-         call indeces(this,istart,jstart,iistart)
-         call indeces(this,istop ,jstop ,iistop)
-         v = 0
-         j = jstart
-         iirs = 0
-         do
-            call getiirs(jstart,jstop,iistart,iistop,inc,j,iir,iirs)
-            v = v + count( btest( this%a(j),iir(1:iirs) ) )
-            if (j == jstop) exit
-         end do
       else
          v = 0
-         do i = istart, istop, inc
-            if (b_fget0( this, i )) v = v+1
-         end do
-      end if
+         kstart = istart
+         do while (kstart <= istop)
+            kstop = min( kstart + (ll-1)*inc, istop )
+            call b_extract( this, kstart, kstop, inc, bb )
+            call clear_end( bb )
+            v = v + sum( popcnt( bb%a ) )
+            kstart = kstop + inc
+         end do         
+      end if      
 
    end function 
    
@@ -819,7 +726,6 @@ contains
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop, inc
       
-      integer, parameter :: l100=100*l
       integer :: kstart, kstop
       type(bitfield_t) :: bb
    
@@ -828,7 +734,7 @@ contains
       else
          kstart = istart
          do while (kstart <= istop)
-            kstop = min( kstart + (l100-1)*inc, istop )
+            kstop = min( kstart + (ll-1)*inc, istop )
             call b_extract( this, kstart, kstop, inc, bb )
             bb%a(:) = not( bb%a )
             call b_replace( this, kstart, kstop, inc, bb )
@@ -937,6 +843,17 @@ contains
       call indeces(this,this%ub,j,ii)
       do iii = ii+1, l-1
          this%a(j) = ibclr(this%a(j),iii)
+      end do
+   end subroutine   
+   
+   _PURE_ subroutine set_end(this)
+      type(bitfield_t), intent(inout) :: this
+      
+      integer :: ii, iii, j
+      
+      call indeces(this,this%ub,j,ii)
+      do iii = ii+1, l-1
+         this%a(j) = ibset(this%a(j),iii)
       end do
    end subroutine   
    
