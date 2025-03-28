@@ -178,6 +178,7 @@ implicit none
       
       procedure, public :: reverse_extract => b_reverse_extract
       procedure, public :: freverse_extract => b_freverse_extract
+      procedure, public :: reverse_replace => b_reverse_replace
       
       procedure, public :: reverse => b_reverse
       procedure, public :: is_reversed => b_is_reversed
