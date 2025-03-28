@@ -129,6 +129,8 @@ implicit none
       integer :: n = -1
       integer :: lb = 1
       integer :: ub = 0
+      integer :: storinc = 1
+      integer :: stork
    contains
       private
       procedure :: allocate1 => b_allocate1
@@ -233,8 +235,8 @@ contains
          this%n = ub - lb + 1 
          this%lb = lb
          this%ub = ub
+         this%stork = lb
          allocate( this%a(0:(this%n-1)/l) )
-         call clear_end(this)
       else
          this%n = 0 
          allocate( this%a(0) )
@@ -278,6 +280,7 @@ contains
       if (this%n > 0) then
          this%lb = lb
          this%ub = lb + this%n -1
+         this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
       end if
    end subroutine 
 
@@ -288,6 +291,7 @@ contains
       if (this%n > 0) then
          this%lb = ub - this%n + 1
          this%ub = ub
+         this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
       end if
    end subroutine 
    
@@ -299,6 +303,8 @@ contains
       
       if (allocated(this%a) .and. this%getsize() /= that%getsize()) call b_deallocate(this)
       if (.not.allocated(this%a)) call b_allocate1(this,that%getsize())
+      this%storinc = that%storinc 
+      this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
       this%a(:) = that%a(:)
    end subroutine 
    
@@ -345,6 +351,7 @@ contains
       if (.not.allocated(this%a)) error stop "b_setrange0: bitfield is not allocated"
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_setrange0(): out of bound indeces" 
+      if (this%storinc < 0) error stop "b_setrange0(): reversed bitfield" 
       if (istop < istart) return
       
       if (inc == 1) then
@@ -454,6 +461,7 @@ contains
       if (sign(1,istop-istart)*sign(1,inc) < 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_getrange1(): out of bound indeces" 
+      if (this%storinc < 0) error stop "b_getrange1(): reversed bitfield" 
 
       if (0 < inc .and. inc <= l/minbatch) then
          call indeces( this, istart, jstart, iistart)
@@ -540,6 +548,8 @@ contains
       if (that%getsize() <= 0) return
       if (istart < this%lb .or. istart > this%ub .or. istop < this%lb .or. istop > this%ub) &
          error stop "b_replace(): out of bound bounds" 
+      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_replace(): reversed bitfield" 
+      
       call indeces(this,istart,jstart,iistart)
       call indeces(this,istop,jstop ,iistop)
       if (inc == 1) then
@@ -577,6 +587,8 @@ contains
       
       if (istart < this%lb .or. istart > this%ub .or. istop  < this%lb .or. istop  > this%ub) &
          error stop "b_extract(): out of bound indeces" 
+      if (this%storinc < 0) error stop "b_extract(): reversed input bitfield" 
+      
       if (allocated(that%a)) call b_deallocate( that )
          
       n = (istop-istart)/inc + 1
@@ -635,6 +647,8 @@ contains
       integer :: kstart, kstop
       type(bitfield_t) :: bb
    
+      if (this%storinc < 0) error stop "b_allrange(): reversed input bitfield" 
+
       if (inc < 0) then
          v = b_allrange(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
@@ -667,6 +681,8 @@ contains
       integer :: kstart, kstop
       type(bitfield_t) :: bb
    
+      if (this%storinc < 0) error stop "b_anyrange(): reversed input bitfield" 
+
       if (inc < 0) then
          v = b_anyrange(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
@@ -699,6 +715,8 @@ contains
       integer :: kstart, kstop
       type(bitfield_t) :: bb
    
+      if (this%storinc < 0) error stop "b_countrange(): reversed input bitfield" 
+
       if (inc < 0) then
          v = b_countrange(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
@@ -729,6 +747,8 @@ contains
       integer :: kstart, kstop
       type(bitfield_t) :: bb
    
+      if (this%storinc < 0) error stop "b_notrange(): reversed input bitfield" 
+
       if (inc < 0) then
          call b_notrange(this,istop+mod(istart-istop,-inc),istart,-inc)
       else
@@ -756,6 +776,8 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
+      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_and(): reversed input bitfield" 
+
       call b_allocate1(b,this%n)
       b%a(:) = iand( this%a, that%a )
    end function
@@ -764,6 +786,8 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
+      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_or(): reversed input bitfield" 
+
       call b_allocate1(b,this%n)
       b%a(:) = ior( this%a, that%a )
    end function
@@ -772,6 +796,8 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
+      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_eqv(): reversed input bitfield" 
+
       call b_allocate1(b,this%n)
       b%a(:) = ieor( this%a, that%a )
       b%a(:) = not(b%a)
@@ -781,6 +807,8 @@ contains
       type(bitfield_t), intent(in) :: this, that
       type(bitfield_t) :: b
             
+      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_neqv(): reversed input bitfield" 
+
       call b_allocate1(b,this%n)
       b%a(:) = ieor( this%a, that%a )
    end function
@@ -791,6 +819,8 @@ contains
       integer :: j, j1, ii1, j2, ii2
       integer(ik) :: a1, a2
       
+      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_equal(): reversed input bitfield" 
+
       call indeces( this, this%ub, j1, ii1 )
       call indeces( that, that%ub, j2, ii2 )
       a1 = zeros ; a2 = zeros
@@ -810,6 +840,8 @@ contains
       integer :: j, j1, ii1, j2, ii2
       integer(ik) :: a1, a2
       
+      if (this%storinc < 0 .or. that%storinc < 0) error stop "b_notequal(): reversed input bitfield" 
+
       call indeces( this, this%ub, j1, ii1 )
       call indeces( that, that%ub, j2, ii2 )
       a1 = zeros ; a2 = zeros
@@ -830,7 +862,7 @@ contains
       integer, intent(in) :: i
       integer, intent(out) :: j, ii
       
-      ii = i-this%lb
+      ii = this%storinc * i - this%stork
       !j = ii/l ; ii = ii - j*l
       j = shiftr(ii,l2l); ii = ii - shiftl(j,l2l)
    end subroutine
@@ -840,6 +872,8 @@ contains
       
       integer :: ii, iii, j
       
+      if (this%storinc < 0) error stop "clear_end(): reversed input bitfield" 
+
       call indeces(this,this%ub,j,ii)
       do iii = ii+1, l-1
          this%a(j) = ibclr(this%a(j),iii)
@@ -851,6 +885,8 @@ contains
       
       integer :: ii, iii, j
       
+      if (this%storinc < 0) error stop "set_end(): reversed input bitfield" 
+
       call indeces(this,this%ub,j,ii)
       do iii = ii+1, l-1
          this%a(j) = ibset(this%a(j),iii)
