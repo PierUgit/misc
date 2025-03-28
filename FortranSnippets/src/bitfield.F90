@@ -88,8 +88,8 @@
 ! bool = b%any(from,to,inc)     ! efficient if |inc|==1
 !     integer :: from, to, inc
 !
-! call b%negate()               ! efficient
-!                               ! (missing a version with start/stop/inc)
+! call b%not()                  ! efficient
+! call b%not(from,to,inc)       ! efficient if |inc|==1
 ! c = .not.b                    ! efficient
 !     type(bitfield_t) :: b, c
 !
@@ -173,7 +173,9 @@ implicit none
       procedure, public :: fextract => b_fextract
       procedure, public :: replace => b_replace   
       
-      procedure, public :: negate => b_negate
+      procedure :: notall => b_notall
+      procedure :: notrange => b_notrange
+      generic, public :: not => notall, notrange
    end type
 
    interface assignment(=)
@@ -181,7 +183,7 @@ implicit none
    end interface
 
    interface operator(.not.)
-      module procedure b_fnegate
+      module procedure b_fnotall
    end interface
    interface operator(.and.)
       module procedure b_and
@@ -807,13 +809,36 @@ contains
    end function 
    
    
-   _PURE_ subroutine b_negate(this)
+   _PURE_ subroutine b_notall(this)
       class(bitfield_t), intent(inout) :: this
             
       this%a(:) = not( this%a )
    end subroutine
    
-   _PURE_ function b_fnegate(this) result(b)
+   _PURE_ recursive subroutine b_notrange(this,istart,istop,inc)
+      class(bitfield_t), intent(inout) :: this
+      integer, intent(in) :: istart, istop, inc
+      
+      integer, parameter :: l100=100*l
+      integer :: kstart, kstop
+      type(bitfield_t) :: bb
+   
+      if (inc < 0) then
+         call b_notrange(this,istop+mod(istart-istop,-inc),istart,-inc)
+      else
+         kstart = istart
+         do while (kstart <= istop)
+            kstop = min( kstart + (l100-1)*inc, istop )
+            call b_extract( this, kstart, kstop, inc, bb )
+            bb%a(:) = not( bb%a )
+            call b_replace( this, kstart, kstop, inc, bb )
+            kstart = kstop + inc
+         end do         
+      end if      
+
+   end subroutine 
+
+   _PURE_ function b_fnotall(this) result(b)
       type(bitfield_t), intent(in) :: this
       type(bitfield_t) :: b
             
