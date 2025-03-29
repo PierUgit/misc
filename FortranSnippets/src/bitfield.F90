@@ -32,7 +32,6 @@
 ! call b%setlb(lb)
 ! call b%setub(ub)
 !     integer :: n, lb, ub
-!     *Note:* b can be a reversed bitfield
 !
 ! call b%set(bool)              ! efficient if bool is a scalar
 ! call b%set(pos,bool)          ! not efficient
@@ -40,98 +39,105 @@
 !     logical :: bool[(:)]
 !     integer :: pos, from, top, inc
 !     *Note:* b must always be allocated beforehand
-!     *Note:* b can be a reversed bitfield iif bool is a scalar
 !
 ! b = bool                      ! efficient
 !     type(bitfield_t) :: b
 !     logical :: bool
-!     *Note:* b can be a reversed bitfield
 ! b = bool                      ! not efficient
 !     type(bitfield_t) :: b
 !     logical :: bool(:)
 !     Note: allocation on assignement can occur
-!     *Note:* b cannot be a reversed bitfield
 !
 ! call b%get(pos,bool)          ! not efficient
 !     logical :: bool           
-!     *Note:* b can be a reversed bitfield
 ! call b%get(bool)              ! not efficient
 ! call b%get(from,to,inc,bool)  ! not efficient
 !     logical :: bool(:)
 !     integer :: pos, frompos, topos
 !     *Note:* bool(:) must be allocated beforehand
-!     *Note:* b cannot be a reversed bitfield
 !
 ! bool = b%fget(pos)            ! not efficient
 !     logical :: bool
-!     *Note:* b can be a reversed bitfield
 ! bool = b%fget()               ! not efficient
 ! bool = b%fget(from,to,inc)    ! not efficient
 !     logical :: bool(:)
 !     integer :: pos, from, top, inc
 !     *Note:* bool(:) must be allocated beforehand
-!     *Note:* b cannot be a reversed bitfield
 !
 ! bool = b                      ! not efficient
 !     type(bitfield_t) :: b
 !     logical, allocatable :: bool(:)
 !     *Note:* works only for an allocatable LHS; allocation on assignement can occur
-!     *Note:* b cannot be a reversed bitfield
 !
 ! call b%extract(from,to,inc,c)     ! efficient if inc==1
 ! c = b%fextract(from,to,inc)       ! efficient if inc==1
-! call b%reverse_extract(from,to,c) ! efficient
-! c = b%freverse_extract(from,to)   ! efficient
 !     integer :: from, to, inc
 !     type(bitfield_t) :: c
-!     *Note:* b cannot be a reversed bitfield
-!             c is a reversed bitfield in the two latter cases
-!
-! call b%reverse()                  ! efficient
-! bool = b%is_reversed()
-!     logical :: bool
-!     *Note:* b can be a reversed bitfield
 !
 ! call b%replace(from,to,inc,c)     ! efficient if inc==1
-! call b%reverse_replace(from,to,c) ! efficient
 !     integer :: from, to, inc
 !     type(bitfield_t) :: c
-!     *Note:* b cannot be a reversed bitfield
-!             c must be reversed bitfield in the latter case
 !
 ! n = b%count()                 ! efficient
 ! n = b%count(from,top,inc)     ! efficient if |inc|==1
 !     integer :: from, to, inc
-!     *Note:* b cannot be a reversed bitfield
 !
 ! bool = b%all()                ! efficient
 ! bool = b%all(from,to,inc)     ! efficient if |inc|==1
 !     integer :: from, to, inc
-!     *Note:* b cannot be a reversed bitfield
 !
 ! bool = b%any()                ! efficient
 ! bool = b%any(from,to,inc)     ! efficient if |inc|==1
 !     integer :: from, to, inc
-!     *Note:* b cannot be a reversed bitfield
 !
 ! call b%not()                  ! efficient
 ! call b%not(from,to,inc)       ! efficient if |inc|==1
 ! c = .not.b                    ! efficient
 !     type(bitfield_t) :: b, c
-!     *Note:* b can be a reversed bitfield
 !
 ! c = b1 .and.  b2              ! efficient
 ! c = b1 .or.   b2              ! efficient
 ! c = b1 .eqv.  b2              ! efficient
 ! c = b1 .neqv. b2              ! efficient
 !     type(bitfield_t) :: b1, b2, c
-!     *Note:* b1 and b2 must be both reversed or both not reversed bitfields
 ! 
 ! bool = ( b1 == b2 )           ! efficient
 ! bool = ( b1 /= b2 )           ! efficient
 !     type(bitfield_t) :: b1, b2
 !     logical :: bool
-!     *Note:* b1 and b2 must be both reversed or both not reversed bitfields
+!
+! ## Reversed bitfield
+!
+! The manipulations above are not efficient for an increment different from +1 or -1,
+! and some of them are efficient only for a +1 increment. However, some of the latter 
+! can be efficient for a -1 increment as well, but this requires a special version of 
+! the bitfield_t type, with the bits stored in the reverse order.
+! 
+! This subroutine/function extracts the bits whith a -1 increments, and outputs a 
+! reversed bitfield:
+!
+! call b%revextract(from,to,c) ! efficient
+! c = b%frevextract(from,to)   ! efficient
+!     integer :: from, to, inc
+!     type(bitfield_t) :: c    ! reversed
+!     *Note:* b must not be a reversed bitfield
+!
+! This subroutine replaces a reversed bitfield into a normal bitfield:
+!
+! call b%revreplace(from,to,c) ! efficient
+!     integer :: from, to, inc
+!     type(bitfield_t) :: c    ! reversed
+!     *Note:* b cannot be a reversed bitfield
+! 
+! There are 2 helper functions:
+!
+! call b%reverse()             ! not efficient
+! bool = b%is_reversed()
+!     logical :: bool
+! 
+! Type-bound procedures that can be used with a reversed bitfield:
+! - %getsize(), %getlb(), %getub(), %setlb(lb), %setub(ub)
+!
 !***********************************************************************************************
 module bitfield
 !use iso_fortran_env
@@ -205,9 +211,9 @@ implicit none
       procedure, public :: fextract => b_fextract
       procedure, public :: replace => b_replace   
       
-      procedure, public :: reverse_extract => b_reverse_extract
-      procedure, public :: freverse_extract => b_freverse_extract
-      procedure, public :: reverse_replace => b_reverse_replace
+      procedure, public :: revextract => b_revextract
+      procedure, public :: frevextract => b_frevextract
+      procedure, public :: revreplace => b_revreplace
       
       procedure, public :: reverse => b_reverse
       procedure, public :: is_reversed => b_is_reversed
@@ -620,7 +626,7 @@ contains
       end if
    end subroutine 
 
-   _PURE_ subroutine b_reverse_replace(this,istart,istop,that)
+   _PURE_ subroutine b_revreplace(this,istart,istop,that)
       class(bitfield_t), intent(inout) :: this
       integer, intent(in) :: istart, istop
       type(bitfield_t), intent(in) :: that
@@ -705,7 +711,7 @@ contains
       call b_extract(this,istart,istop,inc,that)
    end function
    
-   _PURE_ subroutine b_reverse_extract(this,istart,istop,that)
+   _PURE_ subroutine b_revextract(this,istart,istop,that)
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop
       type(bitfield_t), intent(inout) :: that
@@ -741,7 +747,7 @@ contains
       end if
    end subroutine 
    
-   _PURE_ function b_freverse_extract(this,istart,istop) result(that)
+   _PURE_ function b_frevextract(this,istart,istop) result(that)
       class(bitfield_t), intent(in) :: this
       integer, intent(in) :: istart, istop
       type(bitfield_t) :: that
@@ -754,6 +760,11 @@ contains
    _PURE_ subroutine b_reverse(this)
       class(bitfield_t), intent(inout) :: this
       
+      integer :: i
+      
+      do i = this%lb, (this%lb + this%ub)/2
+         this%set( i, this%fget( this%ub + this%lb - i )
+      end do
       this%storinc = -this%storinc
       this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
    end subroutine b_reverse
