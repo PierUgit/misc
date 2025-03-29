@@ -33,6 +33,9 @@
 ! call b%setub(ub)
 !     integer :: n, lb, ub
 !
+! c = b                         ! efficient
+!     type(bitfield_t) :: b, c
+! 
 ! call b%set(bool)              ! efficient if bool is a scalar
 ! call b%set(pos,bool)          ! not efficient
 ! call b%set(from,to,inc,bool)  ! efficient if bool is a scalar and |inc|==1
@@ -45,7 +48,7 @@
 !     logical :: bool
 ! b = bool                      ! not efficient
 !     type(bitfield_t) :: b
-!     logical :: bool(:)
+!     logical, allocatable :: bool(:)
 !     Note: allocation on assignement can occur
 !
 ! call b%get(pos,bool)          ! not efficient
@@ -136,8 +139,19 @@
 !     logical :: bool
 ! 
 ! Type-bound procedures that can be used with a reversed bitfield:
-! - %getsize(), %getlb(), %getub(), %setlb(lb), %setub(ub)
+! %getsize(), %getlb(), %getub(), %setlb(lb), %setub(ub)
+! %set(i,bool)             
+! %set(bool)               ! bool scalar or array
+! %set(from,to,inc,bool)   ! bool array
+! %get(i,bool)
+! bool = b%fget(i)
 !
+! Assignments that can be used with a reversed bitfield:
+! c = b
+! b = bool     ! bool scalar or array
+! 
+! operators that can be used with a reversed bitfield:
+! .and. , .or. , .eqv. , .neqv. , == , /=   ! the 2 operands must be reversed
 !***********************************************************************************************
 module bitfield
 !use iso_fortran_env
@@ -354,7 +368,7 @@ contains
       type(bitfield_t), intent(inout) :: that
       
       if (allocated(this%a) .and. this%getsize() /= that%getsize()) call b_deallocate(this)
-      if (.not.allocated(this%a)) call b_allocate1(this,that%getsize())
+      if (.not.allocated(this%a)) call b_allocate1(this,that%getlb(),that%getub())
       this%storinc = that%storinc 
       this%stork = merge( this%lb, -this%ub, this%storinc > 0 )
       this%a(:) = that%a(:)
@@ -474,10 +488,10 @@ contains
    
    _PURE_ subroutine assign_l2b_1(this,v)
       class(bitfield_t), intent(inout) :: this
-      logical, intent(in) :: v(:)
+      logical, allocatable :: intent(in) :: v(:)
       
       if (allocated(this%a) .and. this%getsize() /= size(v)) call b_deallocate(this)
-      if (.not.allocated(this%a)) call b_allocate1(this,size(v))
+      if (.not.allocated(this%a)) call b_allocate1(this,lbound(v),ubound(v))
       call b_setall1(this,v)
    end subroutine 
 
@@ -580,10 +594,10 @@ contains
 
    _PURE_ subroutine assign_b2l(v,this)
       logical, allocatable, intent(out) :: v(:)
-      class(bitfield_t), intent(in) :: this
+      type(bitfield_t), intent(in) :: this
       
       if (allocated(v) .and. this%getsize() /= size(v)) deallocate(v)
-      if (.not.allocated(v)) allocate( v(this%getsize()) )
+      if (.not.allocated(v)) allocate( v(this%getlb():this%getub()) )
       call b_getall(this,v)
    end subroutine 
 
