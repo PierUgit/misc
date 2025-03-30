@@ -11,7 +11,7 @@
 !***********************************************************************************************
 ! Implementation of a 1-bit logical array, stored in a default integer array
 ! Not cpu-efficient at all, but memory efficient
-! No assumption is made on how the integers are internally represented
+!
 ! Limitations:
 ! - 1D only
 ! - size limited to a default integer
@@ -137,6 +137,8 @@
 ! call b%reverse()             ! not efficient
 ! bool = b%is_reversed()
 !     logical :: bool
+! 
+! Otherwise, what can be done with a reversed bitfield is very limited. Here is the list:
 ! 
 ! Type-bound procedures that can be used with a reversed bitfield:
 ! %getsize(), %getlb(), %getub(), %setlb(lb), %setub(ub)
